@@ -204,9 +204,6 @@ replaces:
   # Needed for telegrafreceiver
   - github.com/influxdata/telegraf => github.com/SumoLogic/telegraf v1.22.0-sumo-4
 
-  # Needed for opamp (temporarily?)
-  - github.com/open-telemetry/opamp-go => github.com/pmm-sumo/opamp-go v0.0.2
-
   # For now, cherry-picked changes are being used:
   # commit: https://github.com/SumoLogic/opentelemetry-collector-contrib/commit/049c70829f005bcd13ed4253de09afe400308df5
   # branch: https://github.com/SumoLogic/opentelemetry-collector-contrib/tree/v0.57.2-filterprocessor

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/client"
+	"github.com/open-telemetry/opamp-go/client/types"
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config"
@@ -75,31 +76,25 @@ func (se *OpAMPExtension) Errorf(format string, v ...interface{}) {
 
 func (se *OpAMPExtension) Start(ctx context.Context, host component.Host) error {
 	se.logger.Info("Starting OpAMP Extension")
-	settings := client.StartSettings{
+	settings := types.StartSettings{
 		OpAMPServerURL: se.endpoint,
 		InstanceUid:    se.instanceid,
-		AgentType:      se.name,
-		AgentVersion:   se.version,
-		Callbacks: client.CallbacksStruct{
-			OnRemoteConfigFunc: se.onAgentRemoteConfig,
+		Callbacks: types.CallbacksStruct{
 			OnConnectFunc: func() {
 				se.logger.Debug("Connected")
 			},
 			OnConnectFailedFunc: func(err error) {
 				se.logger.Error("Failed connecting to OpAMP", zap.Error(err))
 			},
+			OnMessageFunc: func(ctx context.Context, msg *types.MessageData) {
+				se.onAgentRemoteConfig(ctx, msg.RemoteConfig)
+			},
 		},
 	}
 
-	se.client = client.New(se)
 	var err error
 
-	err = se.client.SetEffectiveConfig(se.readCurrentConfig())
-	if err != nil {
-		return err
-	}
-
-	err = se.client.Start(settings)
+	err = se.client.Start(ctx, settings)
 
 	se.startAgentAttrsUpdateLoop(ctx)
 
@@ -125,11 +120,15 @@ func (se *OpAMPExtension) startAgentAttrsUpdateLoop(ctx context.Context) {
 }
 
 func (se *OpAMPExtension) setAgentAttributes() {
-	se.client.SetAgentAttributes(map[string]*protobufs.AnyValue{
-		"version": {
-			Value: &protobufs.AnyValue_StringValue{StringValue: se.version},
+	descr := &protobufs.AgentDescription{
+		NonIdentifyingAttributes: []*protobufs.KeyValue{
+			{
+				Key:   "version",
+				Value: &protobufs.AnyValue{Value: &protobufs.AnyValue_StringValue{StringValue: se.version}},
+			},
 		},
-	})
+	}
+	se.client.SetAgentDescription(descr)
 }
 
 func (se *OpAMPExtension) readCurrentConfig() *protobufs.EffectiveConfig {
@@ -151,7 +150,6 @@ func (se *OpAMPExtension) readCurrentConfig() *protobufs.EffectiveConfig {
 	}
 
 	return &protobufs.EffectiveConfig{
-		Hash:      se.readLastConfigHash(),
 		ConfigMap: &protobufs.AgentConfigMap{ConfigMap: configMap},
 	}
 }
