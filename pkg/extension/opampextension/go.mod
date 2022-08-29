@@ -3,6 +3,7 @@ module github.com/SumoLogic/sumologic-otel-collector/pkg/extension/opampextensio
 go 1.17
 
 require (
+	github.com/google/uuid v1.3.0
 	github.com/open-telemetry/opamp-go v0.0.0-20211206225820-1715144fb40f
 	go.opentelemetry.io/collector v0.40.0
 	go.uber.org/zap v1.19.1
@@ -14,7 +15,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/gorilla/websocket v1.4.2 // indirect
-	github.com/knadh/koanf v1.3.2 // indirect
+	github.com/knadh/koanf v1.3.3 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
 	github.com/mitchellh/mapstructure v1.4.2 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
