@@ -18,6 +18,12 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"os/exec"
+	"syscall"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/client"
 	"github.com/open-telemetry/opamp-go/client/types"
@@ -25,16 +31,30 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config"
 	"go.uber.org/zap"
-	"io/ioutil"
-	"os"
-	"os/exec"
-	"syscall"
-	"time"
 )
 
 const (
 	yamlContentType = "text/yaml"
 )
+
+// This only exists to allow the creation of the OpAmp client for now.
+type opAMPLogger struct {
+	logger *zap.Logger
+}
+
+func newOpAMPLogger(logger *zap.Logger) *opAMPLogger {
+	return &opAMPLogger{
+		logger: logger,
+	}
+}
+
+func (l *opAMPLogger) Debugf(format string, v ...interface{}) {
+	l.logger.Debug(fmt.Sprintf(format, v...))
+}
+
+func (l *opAMPLogger) Errorf(format string, v ...interface{}) {
+	l.logger.Error(fmt.Sprintf(format, v...))
+}
 
 type OpAMPExtension struct {
 	logger      *zap.Logger
@@ -66,14 +86,6 @@ func newOpAMPExtension(conf *Config, logger *zap.Logger, name string, version st
 	}, nil
 }
 
-func (se *OpAMPExtension) Debugf(format string, v ...interface{}) {
-	se.logger.Debug(fmt.Sprintf(format, v...))
-}
-
-func (se *OpAMPExtension) Errorf(format string, v ...interface{}) {
-	se.logger.Error(fmt.Sprintf(format, v...))
-}
-
 func (se *OpAMPExtension) Start(ctx context.Context, host component.Host) error {
 	se.logger.Info("Starting OpAMP Extension")
 	settings := types.StartSettings{
@@ -92,6 +104,7 @@ func (se *OpAMPExtension) Start(ctx context.Context, host component.Host) error 
 		},
 	}
 
+	se.client = client.NewWebSocket(newOpAMPLogger(se.logger))
 	var err error
 
 	err = se.client.Start(ctx, settings)
