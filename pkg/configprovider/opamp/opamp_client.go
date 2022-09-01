@@ -21,6 +21,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/client"
 	"github.com/open-telemetry/opamp-go/client/types"
+	"github.com/open-telemetry/opamp-go/protobufs"
 	"go.uber.org/zap"
 )
 
@@ -90,6 +91,17 @@ func (se *OpAMP) Start(ctx context.Context) error {
 	}
 
 	se.client = client.NewWebSocket(newOpAMPLogger(se.logger))
+
+	descr := &protobufs.AgentDescription{
+		NonIdentifyingAttributes: []*protobufs.KeyValue{
+			{
+				Key:   "version",
+				Value: &protobufs.AnyValue{Value: &protobufs.AnyValue_StringValue{StringValue: "0.0.1"}},
+			},
+		},
+	}
+	se.client.SetAgentDescription(descr)
+
 	var err error
 
 	err = se.client.Start(ctx, settings)

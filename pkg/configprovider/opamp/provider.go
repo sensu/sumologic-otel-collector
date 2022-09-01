@@ -70,9 +70,11 @@ func (fmp *provider) Retrieve(ctx context.Context, uri string, _ confmap.Watcher
 		return confmap.Retrieved{}, err
 	}
 
-	go func() {
-		opamp.Start(ctx)
-	}()
+	err = opamp.Start(ctx)
+
+	if err != nil {
+		return confmap.Retrieved{}, err
+	}
 
 	return confmap.NewRetrieved(conf.ToStringMap())
 }
