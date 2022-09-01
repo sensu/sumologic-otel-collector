@@ -72,26 +72,34 @@ func newOpAMP(endpoint string) (*OpAMP, error) {
 	}, nil
 }
 
-func (se *OpAMP) Start(ctx context.Context) error {
-	se.logger.Info("Starting OpAMP Client")
+func (op *OpAMP) Start(ctx context.Context) error {
+	op.logger.Info("Starting OpAMP Client")
 	settings := types.StartSettings{
-		OpAMPServerURL: se.endpoint,
-		InstanceUid:    se.instanceid,
+		OpAMPServerURL: op.endpoint,
+		InstanceUid:    op.instanceid,
 		Callbacks: types.CallbacksStruct{
 			OnConnectFunc: func() {
-				se.logger.Debug("Connected to OpAMP Server")
+				op.logger.Debug("Connected to OpAMP Server")
 			},
 			OnConnectFailedFunc: func(err error) {
-				se.logger.Error("Failed to connect to OpAMP Server", zap.Error(err))
+				op.logger.Error("Failed to connect to OpAMP Server", zap.Error(err))
 			},
 			OnMessageFunc: func(ctx context.Context, msg *types.MessageData) {
-				se.logger.Debug("Received OpAMP message")
+				op.logger.Debug("Received OpAMP message")
 			},
 		},
 	}
 
-	se.client = client.NewWebSocket(newOpAMPLogger(se.logger))
+	op.client = client.NewWebSocket(newOpAMPLogger(op.logger))
 
+	op.setAgentDescription()
+
+	err := op.client.Start(ctx, settings)
+
+	return err
+}
+
+func (op *OpAMP) setAgentDescription() {
 	descr := &protobufs.AgentDescription{
 		NonIdentifyingAttributes: []*protobufs.KeyValue{
 			{
@@ -100,16 +108,10 @@ func (se *OpAMP) Start(ctx context.Context) error {
 			},
 		},
 	}
-	se.client.SetAgentDescription(descr)
-
-	var err error
-
-	err = se.client.Start(ctx, settings)
-
-	return err
+	op.client.SetAgentDescription(descr)
 }
 
-func (se *OpAMP) Shutdown(ctx context.Context) error {
-	se.cancel()
-	return se.client.Stop(ctx)
+func (op *OpAMP) Shutdown(ctx context.Context) error {
+	op.cancel()
+	return op.client.Stop(ctx)
 }
