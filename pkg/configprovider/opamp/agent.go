@@ -81,8 +81,8 @@ func newAgent(logger types.Logger, serverURL string) *Agent {
 	}
 
 	agent.createAgentIdentity()
-	agent.logger.Debugf("Agent starting, id=%v, type=%s, version=%s.",
-		agent.instanceId.String(), agent.agentType, agent.agentVersion)
+
+	agent.setRemoteConfigStatus()
 
 	agent.loadLocalConfig()
 
@@ -90,6 +90,9 @@ func newAgent(logger types.Logger, serverURL string) *Agent {
 }
 
 func (agent *Agent) Start() error {
+	agent.logger.Debugf("Agent starting, id=%v, type=%s, version=%s.",
+		agent.instanceId.String(), agent.agentType, agent.agentVersion)
+
 	agent.opampClient = client.NewWebSocket(agent.logger)
 
 	settings := types.StartSettings{
@@ -105,7 +108,7 @@ func (agent *Agent) Start() error {
 		InstanceUid: agent.instanceId.String(),
 		Callbacks: types.CallbacksStruct{
 			OnConnectFunc: func() {
-				agent.logger.Debugf("Connected to the server.")
+				agent.logger.Debugf("Connected to the OpAMP server.")
 			},
 			OnConnectFailedFunc: func(err error) {
 				agent.logger.Errorf("Failed to connect to the server: %v", err)
@@ -143,6 +146,15 @@ func (agent *Agent) Start() error {
 	return nil
 }
 
+func stringKeyValue(key, value string) *protobufs.KeyValue {
+	return &protobufs.KeyValue{
+		Key: key,
+		Value: &protobufs.AnyValue{
+			Value: &protobufs.AnyValue_StringValue{StringValue: value},
+		},
+	}
+}
+
 func (agent *Agent) createAgentIdentity() {
 	// Generate instance id.
 	entropy := ulid.Monotonic(rand.New(rand.NewSource(0)), 0)
@@ -150,40 +162,29 @@ func (agent *Agent) createAgentIdentity() {
 
 	hostname, _ := os.Hostname()
 
-	// Create Agent description.
+	ident := []*protobufs.KeyValue{
+		stringKeyValue("service.instance.id", agent.instanceId.String()),
+		stringKeyValue("service.instance.name", hostname),
+		stringKeyValue("service.name", agent.agentType),
+		stringKeyValue("service.version", agent.agentVersion),
+	}
+
+	nonIdent := []*protobufs.KeyValue{
+		stringKeyValue("os.arch", runtime.GOARCH),
+		stringKeyValue("os.details", runtime.GOOS),
+		stringKeyValue("os.family", runtime.GOOS),
+		stringKeyValue("host.name", hostname),
+	}
+
 	agent.agentDescription = &protobufs.AgentDescription{
-		IdentifyingAttributes: []*protobufs.KeyValue{
-			{
-				Key: "service.name",
-				Value: &protobufs.AnyValue{
-					Value: &protobufs.AnyValue_StringValue{StringValue: agent.agentType},
-				},
-			},
-			{
-				Key: "service.version",
-				Value: &protobufs.AnyValue{
-					Value: &protobufs.AnyValue_StringValue{StringValue: agent.agentVersion},
-				},
-			},
-		},
-		NonIdentifyingAttributes: []*protobufs.KeyValue{
-			{
-				Key: "os.family",
-				Value: &protobufs.AnyValue{
-					Value: &protobufs.AnyValue_StringValue{
-						StringValue: runtime.GOOS,
-					},
-				},
-			},
-			{
-				Key: "host.name",
-				Value: &protobufs.AnyValue{
-					Value: &protobufs.AnyValue_StringValue{
-						StringValue: hostname,
-					},
-				},
-			},
-		},
+		IdentifyingAttributes:    ident,
+		NonIdentifyingAttributes: nonIdent,
+	}
+}
+
+func (agent *Agent) setRemoteConfigStatus() {
+	agent.remoteConfigStatus = &protobufs.RemoteConfigStatus{
+		Status: protobufs.RemoteConfigStatus_UNSET,
 	}
 }
 
@@ -312,6 +313,7 @@ func (agent *Agent) Shutdown() {
 }
 
 func (agent *Agent) onMessage(ctx context.Context, msg *types.MessageData) {
+	fmt.Println("Received message from the OpAMP server.\n")
 	configChanged := false
 	if msg.RemoteConfig != nil {
 		var err error
