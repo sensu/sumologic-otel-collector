@@ -17,16 +17,13 @@ package opamp
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/open-telemetry/opamp-go/client"
 	"github.com/open-telemetry/opamp-go/client/types"
 	"github.com/open-telemetry/opamp-go/protobufs"
 	"go.uber.org/zap"
-)
-
-const (
-	yamlContentType = "text/yaml"
 )
 
 // TEMPORARY: This only exists to allow the creation of the OpAmp client for now.
@@ -76,16 +73,28 @@ func (op *OpAMP) Start(ctx context.Context) error {
 	op.logger.Info("Starting OpAMP Client")
 	settings := types.StartSettings{
 		OpAMPServerURL: op.endpoint,
-		InstanceUid:    op.instanceid,
+		Header: http.Header{
+			"Authorization":  []string{fmt.Sprintf("Secret-Key %s", "foobar")},
+			"User-Agent":     []string{fmt.Sprintf("sumologic-otel-collector/%s", "0.0.1")},
+			"OpAMP-Version":  []string{"v0.2.0"}, // BindPlane currently requires OpAMP 0.2.0
+			"Agent-ID":       []string{"foo"},
+			"Agent-Version":  []string{"0.0.1"},
+			"Agent-Hostname": []string{"stealth"},
+		},
+		InstanceUid:  op.instanceid,
+		Capabilities: capabilities,
 		Callbacks: types.CallbacksStruct{
 			OnConnectFunc: func() {
-				op.logger.Debug("Connected to OpAMP Server")
+				op.logger.Info("Connected to OpAMP Server")
 			},
 			OnConnectFailedFunc: func(err error) {
 				op.logger.Error("Failed to connect to OpAMP Server", zap.Error(err))
 			},
 			OnMessageFunc: func(ctx context.Context, msg *types.MessageData) {
-				op.logger.Debug("Received OpAMP message")
+				op.logger.Info("Received OpAMP message")
+				if msg.RemoteConfig != nil {
+					op.logger.Info("Received OpAMP remote config")
+				}
 			},
 		},
 	}
@@ -94,20 +103,39 @@ func (op *OpAMP) Start(ctx context.Context) error {
 
 	op.setAgentDescription()
 
-	err := op.client.Start(ctx, settings)
+	return op.client.Start(ctx, settings)
+}
 
-	return err
+func stringKeyValue(key, value string) *protobufs.KeyValue {
+	return &protobufs.KeyValue{
+		Key: key,
+		Value: &protobufs.AnyValue{
+			Value: &protobufs.AnyValue_StringValue{StringValue: value},
+		},
+	}
 }
 
 func (op *OpAMP) setAgentDescription() {
-	descr := &protobufs.AgentDescription{
-		NonIdentifyingAttributes: []*protobufs.KeyValue{
-			{
-				Key:   "version",
-				Value: &protobufs.AnyValue{Value: &protobufs.AnyValue_StringValue{StringValue: "0.0.1"}},
-			},
-		},
+	identAttribs := []*protobufs.KeyValue{
+		stringKeyValue("service.instance.id", "foobar"),
+		stringKeyValue("service.instance.name", "stealth"),
+		stringKeyValue("service.name", "laptop"),
+		stringKeyValue("service.version", "0.0.1"),
 	}
+
+	nonIdentAttribs := []*protobufs.KeyValue{
+		stringKeyValue("os.arch", "x86_64"),
+		stringKeyValue("os.details", "pop"),
+		stringKeyValue("os.family", "debian"),
+		stringKeyValue("host.name", "stealth"),
+		stringKeyValue("host.mac_address", "c0:b8:83:f6:7f:39"),
+	}
+
+	descr := &protobufs.AgentDescription{
+		IdentifyingAttributes:    identAttribs,
+		NonIdentifyingAttributes: nonIdentAttribs,
+	}
+
 	op.client.SetAgentDescription(descr)
 }
 
