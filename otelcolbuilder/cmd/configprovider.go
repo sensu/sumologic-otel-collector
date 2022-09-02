@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	"github.com/SumoLogic/sumologic-otel-collector/pkg/configprovider/glob"
+	"github.com/SumoLogic/sumologic-otel-collector/pkg/configprovider/opamp"
 	"go.opentelemetry.io/collector/confmap"
 	"go.opentelemetry.io/collector/confmap/converter/expandconverter"
 	"go.opentelemetry.io/collector/confmap/converter/overwritepropertiesconverter"
@@ -86,11 +87,11 @@ func NewConfigProvider(locations []string, setFlags []string) (service.ConfigPro
 
 // see https://github.com/open-telemetry/opentelemetry-collector/blob/72011ca22dff6614d518768b3bb53a1193c6ad02/service/command.go#L38
 // for the logic we're emulating here
-// we only add the glob provider, everything else should be the same
+// we add the glob and opamp providers, everything else should be the same
 func NewConfigProviderSettings(locations []string, setFlags []string) service.ConfigProviderSettings {
 	return service.ConfigProviderSettings{
 		Locations:    locations,
-		MapProviders: makeMapProvidersMap(fileprovider.New(), envprovider.New(), yamlprovider.New(), glob.New()),
+		MapProviders: makeMapProvidersMap(fileprovider.New(), envprovider.New(), yamlprovider.New(), glob.New(), opamp.New()),
 		MapConverters: []confmap.Converter{
 			overwritepropertiesconverter.New(setFlags),
 			expandconverter.New(),
