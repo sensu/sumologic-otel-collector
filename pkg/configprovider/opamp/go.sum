@@ -96,6 +96,8 @@ github.com/open-telemetry/opamp-go v0.2.0 h1:dV7wTkG5XNiorU62N1CJPr3f5dM0PGEtUUB
 github.com/open-telemetry/opamp-go v0.2.0/go.mod h1:IMdeuHGVc5CjKSu5/oNV0o+UmiXuahoHvoZ4GOmAI9M=
 github.com/open-telemetry/opamp-go v0.3.0 h1:/JNn5MBwFws+elCaWOKs/AU8N8xvlcc85WXB5bHr/sk=
 github.com/open-telemetry/opamp-go v0.3.0/go.mod h1:IMdeuHGVc5CjKSu5/oNV0o+UmiXuahoHvoZ4GOmAI9M=
+github.com/open-telemetry/opamp-go v0.3.1-0.20220818165120-89eeb30c8d70 h1:lSkkZRL1TM2r2edFiTk1zCiTAm960BfGiJweZfD8/Ak=
+github.com/open-telemetry/opamp-go v0.3.1-0.20220818165120-89eeb30c8d70/go.mod h1:IMdeuHGVc5CjKSu5/oNV0o+UmiXuahoHvoZ4GOmAI9M=
 github.com/pascaldekloe/goe v0.1.0/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
 github.com/pborman/getopt v0.0.0-20170112200414-7148bc3a4c30/go.mod h1:85jBQOZwpVEaDAr341tbn15RS4fCAsIst0qp7i8ex1o=
 github.com/pelletier/go-toml v1.7.0 h1:7utD74fnzVc/cpcyy8sjrlFr5vYpypUixARcHIMIGuI=

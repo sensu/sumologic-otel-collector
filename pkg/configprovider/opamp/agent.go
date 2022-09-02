@@ -122,9 +122,9 @@ func (agent *Agent) Start() error {
 			OnMessageFunc: agent.onMessage,
 		},
 		RemoteConfigStatus: agent.remoteConfigStatus,
-		//		Capabilities: protobufs.AgentCapabilities_AcceptsRemoteConfig |
-		//			protobufs.AgentCapabilities_ReportsRemoteConfig |
-		//			protobufs.AgentCapabilities_ReportsEffectiveConfig,
+		Capabilities: protobufs.AgentCapabilities_AcceptsRemoteConfig |
+			protobufs.AgentCapabilities_ReportsRemoteConfig |
+			protobufs.AgentCapabilities_ReportsEffectiveConfig,
 	}
 	err := agent.opampClient.SetAgentDescription(agent.agentDescription)
 	if err != nil {
