@@ -33,25 +33,6 @@ import (
 	"github.com/open-telemetry/opamp-go/protobufs"
 )
 
-const localConfig = `
-exporters:
-  otlp:
-    endpoint: localhost:1111
-
-receivers:
-  otlp:
-    protocols:
-      grpc: {}
-      http: {}
-
-service:
-  pipelines:
-    traces:
-      receivers: [otlp]
-      processors: []
-      exporters: [otlp]
-`
-
 type Agent struct {
 	logger types.Logger
 
@@ -61,6 +42,8 @@ type Agent struct {
 	serverURL string
 
 	effectiveConfig string
+
+	configUpdated chan bool
 
 	instanceId ulid.ULID
 
@@ -73,18 +56,14 @@ type Agent struct {
 
 func newAgent(logger types.Logger, serverURL string) *Agent {
 	agent := &Agent{
-		logger:          logger,
-		agentType:       "sumologic-otel-collector",
-		agentVersion:    "0.0.1",
-		serverURL:       serverURL,
-		effectiveConfig: localConfig,
+		logger:        logger,
+		agentType:     "sumologic-otel-collector",
+		agentVersion:  "0.0.1",
+		serverURL:     serverURL,
+		configUpdated: make(chan bool),
 	}
 
 	agent.createAgentIdentity()
-
-	agent.setRemoteConfigStatus()
-
-	agent.loadLocalConfig()
 
 	return agent
 }
@@ -101,7 +80,7 @@ func (agent *Agent) Start() error {
 			"Authorization":  []string{fmt.Sprintf("Secret-Key %s", "foobar")},
 			"User-Agent":     []string{fmt.Sprintf("sumologic-otel-collector/%s", "0.0.1")},
 			"OpAMP-Version":  []string{"v0.2.0"}, // BindPlane currently requires OpAMP 0.2.0
-			"Agent-ID":       []string{"foo"},
+			"Agent-ID":       []string{agent.instanceId.String()},
 			"Agent-Version":  []string{"0.0.1"},
 			"Agent-Hostname": []string{"stealth"},
 		},
@@ -182,29 +161,11 @@ func (agent *Agent) createAgentIdentity() {
 	}
 }
 
-func (agent *Agent) setRemoteConfigStatus() {
-	agent.remoteConfigStatus = &protobufs.RemoteConfigStatus{
-		Status: protobufs.RemoteConfigStatus_UNSET,
-	}
-}
-
 func (agent *Agent) updateAgentIdentity(instanceId ulid.ULID) {
 	agent.logger.Debugf("Agent identify is being changed from id=%v to id=%v",
 		agent.instanceId.String(),
 		instanceId.String())
 	agent.instanceId = instanceId
-}
-
-func (agent *Agent) loadLocalConfig() {
-	var k = koanf.New(".")
-	_ = k.Load(rawbytes.Provider([]byte(localConfig)), yaml.Parser())
-
-	effectiveConfigBytes, err := k.Marshal(yaml.Parser())
-	if err != nil {
-		panic(err)
-	}
-
-	agent.effectiveConfig = string(effectiveConfigBytes)
 }
 
 func (agent *Agent) composeEffectiveConfig() *protobufs.EffectiveConfig {
@@ -245,12 +206,7 @@ func (agent *Agent) applyRemoteConfig(config *protobufs.AgentRemoteConfig) (conf
 
 	agent.logger.Debugf("Received remote config from server, hash=%x.", config.ConfigHash)
 
-	// Begin with local config. We will later merge received configs on top of it.
 	var k = koanf.New(".")
-	if err := k.Load(rawbytes.Provider([]byte(localConfig)), yaml.Parser()); err != nil {
-		return false, err
-	}
-
 	orderedConfigs := agentConfigFileSlice{}
 	for name, file := range config.Config.ConfigMap {
 		if name == "" {
@@ -313,7 +269,6 @@ func (agent *Agent) Shutdown() {
 }
 
 func (agent *Agent) onMessage(ctx context.Context, msg *types.MessageData) {
-	fmt.Println("Received message from the OpAMP server.\n")
 	configChanged := false
 	if msg.RemoteConfig != nil {
 		var err error
@@ -345,5 +300,7 @@ func (agent *Agent) onMessage(ctx context.Context, msg *types.MessageData) {
 		if err != nil {
 			agent.logger.Errorf(err.Error())
 		}
+
+		agent.configUpdated <- true
 	}
 }

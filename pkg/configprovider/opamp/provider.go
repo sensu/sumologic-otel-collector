@@ -27,53 +27,37 @@ const (
 	schemeName = "opamp"
 )
 
-type provider struct{}
+type provider struct {
+	opampAgent Agent
+}
 
 func New() confmap.Provider {
 	return &provider{}
 }
 
-func (fmp *provider) Retrieve(ctx context.Context, uri string, _ confmap.WatcherFunc) (confmap.Retrieved, error) {
+func (fmp *provider) Retrieve(ctx context.Context, uri string, watcher confmap.WatcherFunc) (confmap.Retrieved, error) {
 	if !strings.HasPrefix(uri, schemeName+":") {
 		return confmap.Retrieved{}, fmt.Errorf("%q uri is not supported by %q provider", uri, schemeName)
 	}
 
 	opampEndpoint := uri[len(schemeName)+1:]
 
-	stringMap := map[string]interface{}{
-		"receivers": map[string]interface{}{
-			"hostmetrics": map[string]interface{}{
-				"collection_interval": "30s",
-				"scrapers": map[string]interface{}{
-					"load": nil,
-				},
-			},
-		},
-		"exporters": map[string]interface{}{
-			"logging": map[string]interface{}{
-				"logLevel": "debug",
-			},
-		},
-		"service": map[string]interface{}{
-			"pipelines": map[string]interface{}{
-				"metrics": map[string]interface{}{
-					"receivers": []string{"hostmetrics"},
-					"exporters": []string{"logging"},
-				},
-			},
-		},
-	}
-	conf := confmap.NewFromStringMap(stringMap)
+	fmp.opampAgent = *newAgent(&Logger{log.Default()}, opampEndpoint)
 
-	agent := newAgent(&Logger{log.Default()}, opampEndpoint)
-
-	err := agent.Start()
+	err := fmp.opampAgent.Start()
 
 	if err != nil {
 		return confmap.Retrieved{}, err
 	}
 
-	return confmap.NewRetrieved(conf.ToStringMap())
+	go func() {
+		<-fmp.opampAgent.configUpdated
+		watcher(&confmap.ChangeEvent{})
+	}()
+
+	stringMap := make(map[string]interface{})
+
+	return confmap.NewRetrieved(stringMap)
 }
 
 func (*provider) Scheme() string {
@@ -81,5 +65,7 @@ func (*provider) Scheme() string {
 }
 
 func (fmp *provider) Shutdown(context.Context) error {
+	fmp.opampAgent.Shutdown()
+
 	return nil
 }
