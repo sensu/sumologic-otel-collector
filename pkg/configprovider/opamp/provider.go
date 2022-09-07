@@ -50,14 +50,20 @@ func (fmp *provider) Retrieve(ctx context.Context, uri string, watcher confmap.W
 		return confmap.Retrieved{}, err
 	}
 
+	<-fmp.opampAgent.configUpdated
+
+	conf, err := fmp.opampAgent.effectiveConfigMap()
+
+	if err != nil {
+		return confmap.Retrieved{}, err
+	}
+
 	go func() {
 		<-fmp.opampAgent.configUpdated
 		watcher(&confmap.ChangeEvent{})
 	}()
 
-	stringMap := make(map[string]interface{})
-
-	return confmap.NewRetrieved(stringMap)
+	return confmap.NewRetrieved(conf)
 }
 
 func (*provider) Scheme() string {

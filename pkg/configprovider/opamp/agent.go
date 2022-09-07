@@ -19,6 +19,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"time"
@@ -45,7 +46,7 @@ type Agent struct {
 
 	configUpdated chan bool
 
-	instanceId ulid.ULID
+	instanceId string
 
 	agentDescription *protobufs.AgentDescription
 
@@ -63,16 +64,19 @@ func newAgent(logger types.Logger, serverURL string) *Agent {
 		configUpdated: make(chan bool),
 	}
 
-	agent.createAgentIdentity()
+	agent.createAgentId()
+	agent.createAgentDescription()
 
 	return agent
 }
 
 func (agent *Agent) Start() error {
 	agent.logger.Debugf("Agent starting, id=%v, type=%s, version=%s.",
-		agent.instanceId.String(), agent.agentType, agent.agentVersion)
+		agent.instanceId, agent.agentType, agent.agentVersion)
 
 	agent.opampClient = client.NewWebSocket(agent.logger)
+
+	hostname, _ := os.Hostname()
 
 	settings := types.StartSettings{
 		OpAMPServerURL: agent.serverURL,
@@ -80,11 +84,11 @@ func (agent *Agent) Start() error {
 			"Authorization":  []string{fmt.Sprintf("Secret-Key %s", "foobar")},
 			"User-Agent":     []string{fmt.Sprintf("sumologic-otel-collector/%s", "0.0.1")},
 			"OpAMP-Version":  []string{"v0.2.0"}, // BindPlane currently requires OpAMP 0.2.0
-			"Agent-ID":       []string{agent.instanceId.String()},
+			"Agent-ID":       []string{agent.instanceId},
 			"Agent-Version":  []string{"0.0.1"},
-			"Agent-Hostname": []string{"stealth"},
+			"Agent-Hostname": []string{hostname},
 		},
-		InstanceUid: agent.instanceId.String(),
+		InstanceUid: agent.instanceId,
 		Callbacks: types.CallbacksStruct{
 			OnConnectFunc: func() {
 				agent.logger.Debugf("Connected to the OpAMP server.")
@@ -125,6 +129,39 @@ func (agent *Agent) Start() error {
 	return nil
 }
 
+func instanceIdFilePath() string {
+	return filepath.Join(os.TempDir(), "ot-opamp-id")
+}
+
+func (agent *Agent) loadInstanceId() {
+	data, err := os.ReadFile(instanceIdFilePath())
+	if err == nil && len(data) > 0 {
+		agent.instanceId = string(data)
+	}
+}
+
+func (agent *Agent) saveInstanceId() error {
+	f, err := os.OpenFile(instanceIdFilePath(), os.O_RDWR|os.O_CREATE, 0755)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write([]byte(agent.instanceId))
+
+	return err
+}
+
+func (agent *Agent) createAgentId() {
+	agent.loadInstanceId()
+
+	if agent.instanceId == "" {
+		entropy := ulid.Monotonic(rand.New(rand.NewSource(0)), 0)
+		agent.instanceId = ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+		agent.saveInstanceId()
+	}
+}
+
 func stringKeyValue(key, value string) *protobufs.KeyValue {
 	return &protobufs.KeyValue{
 		Key: key,
@@ -134,15 +171,11 @@ func stringKeyValue(key, value string) *protobufs.KeyValue {
 	}
 }
 
-func (agent *Agent) createAgentIdentity() {
-	// Generate instance id.
-	entropy := ulid.Monotonic(rand.New(rand.NewSource(0)), 0)
-	agent.instanceId = ulid.MustNew(ulid.Timestamp(time.Now()), entropy)
-
+func (agent *Agent) createAgentDescription() {
 	hostname, _ := os.Hostname()
 
 	ident := []*protobufs.KeyValue{
-		stringKeyValue("service.instance.id", agent.instanceId.String()),
+		stringKeyValue("service.instance.id", agent.instanceId),
 		stringKeyValue("service.instance.name", hostname),
 		stringKeyValue("service.name", agent.agentType),
 		stringKeyValue("service.version", agent.agentVersion),
@@ -163,9 +196,10 @@ func (agent *Agent) createAgentIdentity() {
 
 func (agent *Agent) updateAgentIdentity(instanceId ulid.ULID) {
 	agent.logger.Debugf("Agent identify is being changed from id=%v to id=%v",
-		agent.instanceId.String(),
+		agent.instanceId,
 		instanceId.String())
-	agent.instanceId = instanceId
+	agent.instanceId = instanceId.String()
+	agent.saveInstanceId()
 }
 
 func (agent *Agent) composeEffectiveConfig() *protobufs.EffectiveConfig {
@@ -176,6 +210,20 @@ func (agent *Agent) composeEffectiveConfig() *protobufs.EffectiveConfig {
 			},
 		},
 	}
+}
+
+func (agent *Agent) effectiveConfigMap() (map[string]interface{}, error) {
+	var k = koanf.New(".")
+	err := k.Load(rawbytes.Provider([]byte(agent.effectiveConfig)), yaml.Parser())
+
+	if err != nil {
+		return k.Raw(), err
+	}
+
+	// Bindplane returning configuration that doesn't work with our OT distribution.
+	k.Delete("labels")
+
+	return k.Raw(), nil
 }
 
 type agentConfigFileItem struct {
