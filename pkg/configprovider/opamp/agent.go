@@ -15,14 +15,12 @@ package opamp
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"os"
-	"path/filepath"
 	"runtime"
 	"sort"
-	"time"
 
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/yaml"
@@ -37,6 +35,9 @@ import (
 type Agent struct {
 	logger types.Logger
 
+	state        *agentState
+	stateManager *stateManager
+
 	agentType    string
 	agentVersion string
 
@@ -45,8 +46,6 @@ type Agent struct {
 	effectiveConfig string
 
 	configUpdated chan bool
-
-	instanceId string
 
 	agentDescription *protobufs.AgentDescription
 
@@ -58,13 +57,19 @@ type Agent struct {
 func newAgent(logger types.Logger, serverURL string) *Agent {
 	agent := &Agent{
 		logger:        logger,
+		state:         &agentState{},
+		stateManager:  &stateManager{},
 		agentType:     "sumologic-otel-collector",
 		agentVersion:  "0.0.1",
 		serverURL:     serverURL,
 		configUpdated: make(chan bool),
 	}
 
-	agent.createAgentId()
+	// TODO: look into how to appropriately deal with errors that occur in
+	// config providers.
+	if err := agent.loadState(); err != nil {
+		panic("failed to load state")
+	}
 	agent.createAgentDescription()
 
 	return agent
@@ -72,7 +77,7 @@ func newAgent(logger types.Logger, serverURL string) *Agent {
 
 func (agent *Agent) Start() error {
 	agent.logger.Debugf("Agent starting, id=%v, type=%s, version=%s.",
-		agent.instanceId, agent.agentType, agent.agentVersion)
+		agent.state.InstanceId, agent.agentType, agent.agentVersion)
 
 	agent.opampClient = client.NewWebSocket(agent.logger)
 
@@ -84,11 +89,11 @@ func (agent *Agent) Start() error {
 			"Authorization":  []string{fmt.Sprintf("Secret-Key %s", "foobar")},
 			"User-Agent":     []string{fmt.Sprintf("sumologic-otel-collector/%s", "0.0.1")},
 			"OpAMP-Version":  []string{"v0.2.0"}, // BindPlane currently requires OpAMP 0.2.0
-			"Agent-ID":       []string{agent.instanceId},
+			"Agent-ID":       []string{agent.state.InstanceId},
 			"Agent-Version":  []string{"0.0.1"},
 			"Agent-Hostname": []string{hostname},
 		},
-		InstanceUid: agent.instanceId,
+		InstanceUid: agent.state.InstanceId,
 		Callbacks: types.CallbacksStruct{
 			OnConnectFunc: func() {
 				agent.logger.Debugf("Connected to the OpAMP server.")
@@ -129,42 +134,24 @@ func (agent *Agent) Start() error {
 	return nil
 }
 
-func instanceIdFilePath() string {
-	return filepath.Join(os.TempDir(), "ot-opamp-id")
-}
-
-func loadInstanceId() string {
-	data, err := os.ReadFile(instanceIdFilePath())
-	if err == nil && len(data) > 0 {
-		return string(data)
-	}
-	return ""
-}
-
-func (agent *Agent) saveInstanceId() error {
-	f, err := os.OpenFile(instanceIdFilePath(), os.O_RDWR|os.O_CREATE, 0755)
+// TODO: I think we'll need to use a mutex here for getting / setting the
+// agent.state field; or perhaps we should interact with loaded state through
+// stateManager.
+func (agent *Agent) loadState() error {
+	state, err := agent.stateManager.Load()
 	if err != nil {
-		return err
+		if errors.Is(err, os.ErrNotExist) {
+			state = newAgentState()
+			if err := agent.stateManager.Save(state); err != nil {
+				return err
+			}
+		} else {
+			return err
+		}
 	}
-	defer f.Close()
+	agent.state = state
 
-	_, err = f.Write([]byte(agent.instanceId))
-
-	return err
-}
-
-func newInstanceId() string {
-	entropy := ulid.Monotonic(rand.New(rand.NewSource(0)), 0)
-	return ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
-}
-
-func (agent *Agent) createAgentId() {
-	agent.instanceId = loadInstanceId()
-
-	if agent.instanceId == "" {
-		agent.instanceId = newInstanceId()
-		agent.saveInstanceId()
-	}
+	return nil
 }
 
 func stringKeyValue(key, value string) *protobufs.KeyValue {
@@ -180,7 +167,7 @@ func (agent *Agent) createAgentDescription() {
 	hostname, _ := os.Hostname()
 
 	ident := []*protobufs.KeyValue{
-		stringKeyValue("service.instance.id", agent.instanceId),
+		stringKeyValue("service.instance.id", agent.state.InstanceId),
 		stringKeyValue("service.instance.name", hostname),
 		stringKeyValue("service.name", agent.agentType),
 		stringKeyValue("service.version", agent.agentVersion),
@@ -200,11 +187,11 @@ func (agent *Agent) createAgentDescription() {
 }
 
 func (agent *Agent) updateAgentIdentity(instanceId ulid.ULID) {
-	agent.logger.Debugf("Agent identify is being changed from id=%v to id=%v",
-		agent.instanceId,
+	agent.logger.Debugf("Agent identity is being changed from id=%v to id=%v",
+		agent.state.InstanceId,
 		instanceId.String())
-	agent.instanceId = instanceId.String()
-	agent.saveInstanceId()
+	agent.state.InstanceId = instanceId.String()
+	agent.stateManager.Save(agent.state)
 }
 
 func (agent *Agent) composeEffectiveConfig() *protobufs.EffectiveConfig {

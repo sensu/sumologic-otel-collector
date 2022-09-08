@@ -15,7 +15,6 @@ package opamp
 
 import (
 	"context"
-	"os"
 	"reflect"
 	"testing"
 
@@ -50,6 +49,8 @@ func Test_newAgent(t *testing.T) {
 func TestAgent_Start(t *testing.T) {
 	type fields struct {
 		logger             types.Logger
+		state              *agentState
+		stateManager       *stateManager
 		agentType          string
 		agentVersion       string
 		serverURL          string
@@ -70,6 +71,7 @@ func TestAgent_Start(t *testing.T) {
 			name: "returns error when setting the agent description fails",
 			fields: fields{
 				logger: &NoopLogger{},
+				state:  &agentState{},
 			},
 			wantErr:    true,
 			wantErrMsg: "AgentDescription is nil",
@@ -78,6 +80,7 @@ func TestAgent_Start(t *testing.T) {
 			name: "returns error when starting the client fails",
 			fields: fields{
 				logger: &NoopLogger{},
+				state:  &agentState{},
 				agentDescription: &protobufs.AgentDescription{
 					IdentifyingAttributes: []*protobufs.KeyValue{},
 				},
@@ -92,7 +95,9 @@ func TestAgent_Start(t *testing.T) {
 				agentDescription: &protobufs.AgentDescription{
 					IdentifyingAttributes: []*protobufs.KeyValue{},
 				},
-				instanceId: newInstanceId(),
+				state: &agentState{
+					InstanceId: newInstanceId(),
+				},
 			},
 		},
 	}
@@ -100,12 +105,12 @@ func TestAgent_Start(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := &Agent{
 				logger:             tt.fields.logger,
+				state:              tt.fields.state,
 				agentType:          tt.fields.agentType,
 				agentVersion:       tt.fields.agentVersion,
 				serverURL:          tt.fields.serverURL,
 				effectiveConfig:    tt.fields.effectiveConfig,
 				configUpdated:      tt.fields.configUpdated,
-				instanceId:         tt.fields.instanceId,
 				agentDescription:   tt.fields.agentDescription,
 				opampClient:        tt.fields.opampClient,
 				remoteConfigStatus: tt.fields.remoteConfigStatus,
@@ -121,96 +126,38 @@ func TestAgent_Start(t *testing.T) {
 	}
 }
 
-func Test_instanceIdFilePath(t *testing.T) {
-	tests := []struct {
-		name string
-		want string
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := instanceIdFilePath(); got != tt.want {
-				t.Errorf("instanceIdFilePath() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestAgent_saveInstanceId(t *testing.T) {
+func TestAgent_loadState(t *testing.T) {
 	type fields struct {
-		logger             types.Logger
-		agentType          string
-		agentVersion       string
-		serverURL          string
-		effectiveConfig    string
-		configUpdated      chan bool
-		instanceId         string
-		agentDescription   *protobufs.AgentDescription
-		opampClient        client.OpAMPClient
-		remoteConfigStatus *protobufs.RemoteConfigStatus
+		state        *agentState
+		stateManager *stateManager
 	}
-	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			agent := &Agent{
-				logger:             tt.fields.logger,
-				agentType:          tt.fields.agentType,
-				agentVersion:       tt.fields.agentVersion,
-				serverURL:          tt.fields.serverURL,
-				effectiveConfig:    tt.fields.effectiveConfig,
-				configUpdated:      tt.fields.configUpdated,
-				instanceId:         tt.fields.instanceId,
-				agentDescription:   tt.fields.agentDescription,
-				opampClient:        tt.fields.opampClient,
-				remoteConfigStatus: tt.fields.remoteConfigStatus,
-			}
-			if err := agent.saveInstanceId(); (err != nil) != tt.wantErr {
-				t.Errorf("Agent.saveInstanceId() error = %v, wantErr %v", err, tt.wantErr)
-			}
-		})
-	}
-}
-
-func TestAgent_createAgentId(t *testing.T) {
 	tests := []struct {
 		name       string
-		beforeHook func(t *testing.T)
+		fields     fields
+		beforeHook func(t *testing.T, m *stateManager)
 	}{
 		{
-			name: "generates an instance id when none exists",
+			name: "generates state when none exists",
 		},
 		{
-			name: "loads an instance id when one exists",
-			beforeHook: func(t *testing.T) {
-				// TODO: use stateManager to persist an instance id before attempting to load
-				f, err := os.OpenFile(instanceIdFilePath(), os.O_RDWR|os.O_CREATE, 0755)
-				require.NoError(t, err)
-				t.Cleanup(func() {
-					f.Close()
-
-				})
-
-				_, err = f.Write([]byte(newInstanceId()))
+			name: "loads state when it exists",
+			beforeHook: func(t *testing.T, m *stateManager) {
+				err := m.Save(newAgentState())
 				require.NoError(t, err)
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.beforeHook != nil {
-				tt.beforeHook(t)
+			agent := &Agent{
+				stateManager: &stateManager{},
 			}
-			agent := &Agent{}
-			agent.createAgentId()
-			if agent.instanceId == "" {
-				t.Error("Agent.createAgentId() instanceId is empty, want non-empty string")
+			if tt.beforeHook != nil {
+				tt.beforeHook(t, agent.stateManager)
+			}
+			agent.loadState()
+			if agent.state.InstanceId == "" {
+				t.Error("Agent.loadState() instanceId is empty, want non-empty string")
 			}
 		})
 	}
@@ -240,12 +187,12 @@ func Test_stringKeyValue(t *testing.T) {
 func TestAgent_createAgentDescription(t *testing.T) {
 	type fields struct {
 		logger             types.Logger
+		state              *agentState
 		agentType          string
 		agentVersion       string
 		serverURL          string
 		effectiveConfig    string
 		configUpdated      chan bool
-		instanceId         string
 		agentDescription   *protobufs.AgentDescription
 		opampClient        client.OpAMPClient
 		remoteConfigStatus *protobufs.RemoteConfigStatus
@@ -260,12 +207,12 @@ func TestAgent_createAgentDescription(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := &Agent{
 				logger:             tt.fields.logger,
+				state:              tt.fields.state,
 				agentType:          tt.fields.agentType,
 				agentVersion:       tt.fields.agentVersion,
 				serverURL:          tt.fields.serverURL,
 				effectiveConfig:    tt.fields.effectiveConfig,
 				configUpdated:      tt.fields.configUpdated,
-				instanceId:         tt.fields.instanceId,
 				agentDescription:   tt.fields.agentDescription,
 				opampClient:        tt.fields.opampClient,
 				remoteConfigStatus: tt.fields.remoteConfigStatus,
@@ -278,12 +225,12 @@ func TestAgent_createAgentDescription(t *testing.T) {
 func TestAgent_updateAgentIdentity(t *testing.T) {
 	type fields struct {
 		logger             types.Logger
+		state              *agentState
 		agentType          string
 		agentVersion       string
 		serverURL          string
 		effectiveConfig    string
 		configUpdated      chan bool
-		instanceId         string
 		agentDescription   *protobufs.AgentDescription
 		opampClient        client.OpAMPClient
 		remoteConfigStatus *protobufs.RemoteConfigStatus
@@ -302,12 +249,12 @@ func TestAgent_updateAgentIdentity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := &Agent{
 				logger:             tt.fields.logger,
+				state:              tt.fields.state,
 				agentType:          tt.fields.agentType,
 				agentVersion:       tt.fields.agentVersion,
 				serverURL:          tt.fields.serverURL,
 				effectiveConfig:    tt.fields.effectiveConfig,
 				configUpdated:      tt.fields.configUpdated,
-				instanceId:         tt.fields.instanceId,
 				agentDescription:   tt.fields.agentDescription,
 				opampClient:        tt.fields.opampClient,
 				remoteConfigStatus: tt.fields.remoteConfigStatus,
@@ -320,6 +267,7 @@ func TestAgent_updateAgentIdentity(t *testing.T) {
 func TestAgent_composeEffectiveConfig(t *testing.T) {
 	type fields struct {
 		logger             types.Logger
+		state              *agentState
 		agentType          string
 		agentVersion       string
 		serverURL          string
@@ -341,12 +289,12 @@ func TestAgent_composeEffectiveConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := &Agent{
 				logger:             tt.fields.logger,
+				state:              tt.fields.state,
 				agentType:          tt.fields.agentType,
 				agentVersion:       tt.fields.agentVersion,
 				serverURL:          tt.fields.serverURL,
 				effectiveConfig:    tt.fields.effectiveConfig,
 				configUpdated:      tt.fields.configUpdated,
-				instanceId:         tt.fields.instanceId,
 				agentDescription:   tt.fields.agentDescription,
 				opampClient:        tt.fields.opampClient,
 				remoteConfigStatus: tt.fields.remoteConfigStatus,
@@ -361,12 +309,12 @@ func TestAgent_composeEffectiveConfig(t *testing.T) {
 func TestAgent_effectiveConfigMap(t *testing.T) {
 	type fields struct {
 		logger             types.Logger
+		state              *agentState
 		agentType          string
 		agentVersion       string
 		serverURL          string
 		effectiveConfig    string
 		configUpdated      chan bool
-		instanceId         string
 		agentDescription   *protobufs.AgentDescription
 		opampClient        client.OpAMPClient
 		remoteConfigStatus *protobufs.RemoteConfigStatus
@@ -383,12 +331,12 @@ func TestAgent_effectiveConfigMap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := &Agent{
 				logger:             tt.fields.logger,
+				state:              tt.fields.state,
 				agentType:          tt.fields.agentType,
 				agentVersion:       tt.fields.agentVersion,
 				serverURL:          tt.fields.serverURL,
 				effectiveConfig:    tt.fields.effectiveConfig,
 				configUpdated:      tt.fields.configUpdated,
-				instanceId:         tt.fields.instanceId,
 				agentDescription:   tt.fields.agentDescription,
 				opampClient:        tt.fields.opampClient,
 				remoteConfigStatus: tt.fields.remoteConfigStatus,
@@ -466,12 +414,12 @@ func Test_agentConfigFileSlice_Len(t *testing.T) {
 func TestAgent_applyRemoteConfig(t *testing.T) {
 	type fields struct {
 		logger             types.Logger
+		state              *agentState
 		agentType          string
 		agentVersion       string
 		serverURL          string
 		effectiveConfig    string
 		configUpdated      chan bool
-		instanceId         string
 		agentDescription   *protobufs.AgentDescription
 		opampClient        client.OpAMPClient
 		remoteConfigStatus *protobufs.RemoteConfigStatus
@@ -492,12 +440,12 @@ func TestAgent_applyRemoteConfig(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := &Agent{
 				logger:             tt.fields.logger,
+				state:              tt.fields.state,
 				agentType:          tt.fields.agentType,
 				agentVersion:       tt.fields.agentVersion,
 				serverURL:          tt.fields.serverURL,
 				effectiveConfig:    tt.fields.effectiveConfig,
 				configUpdated:      tt.fields.configUpdated,
-				instanceId:         tt.fields.instanceId,
 				agentDescription:   tt.fields.agentDescription,
 				opampClient:        tt.fields.opampClient,
 				remoteConfigStatus: tt.fields.remoteConfigStatus,
@@ -517,12 +465,12 @@ func TestAgent_applyRemoteConfig(t *testing.T) {
 func TestAgent_Shutdown(t *testing.T) {
 	type fields struct {
 		logger             types.Logger
+		state              *agentState
 		agentType          string
 		agentVersion       string
 		serverURL          string
 		effectiveConfig    string
 		configUpdated      chan bool
-		instanceId         string
 		agentDescription   *protobufs.AgentDescription
 		opampClient        client.OpAMPClient
 		remoteConfigStatus *protobufs.RemoteConfigStatus
@@ -537,12 +485,12 @@ func TestAgent_Shutdown(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := &Agent{
 				logger:             tt.fields.logger,
+				state:              tt.fields.state,
 				agentType:          tt.fields.agentType,
 				agentVersion:       tt.fields.agentVersion,
 				serverURL:          tt.fields.serverURL,
 				effectiveConfig:    tt.fields.effectiveConfig,
 				configUpdated:      tt.fields.configUpdated,
-				instanceId:         tt.fields.instanceId,
 				agentDescription:   tt.fields.agentDescription,
 				opampClient:        tt.fields.opampClient,
 				remoteConfigStatus: tt.fields.remoteConfigStatus,
@@ -555,12 +503,12 @@ func TestAgent_Shutdown(t *testing.T) {
 func TestAgent_onMessage(t *testing.T) {
 	type fields struct {
 		logger             types.Logger
+		state              *agentState
 		agentType          string
 		agentVersion       string
 		serverURL          string
 		effectiveConfig    string
 		configUpdated      chan bool
-		instanceId         string
 		agentDescription   *protobufs.AgentDescription
 		opampClient        client.OpAMPClient
 		remoteConfigStatus *protobufs.RemoteConfigStatus
@@ -580,12 +528,12 @@ func TestAgent_onMessage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := &Agent{
 				logger:             tt.fields.logger,
+				state:              tt.fields.state,
 				agentType:          tt.fields.agentType,
 				agentVersion:       tt.fields.agentVersion,
 				serverURL:          tt.fields.serverURL,
 				effectiveConfig:    tt.fields.effectiveConfig,
 				configUpdated:      tt.fields.configUpdated,
-				instanceId:         tt.fields.instanceId,
 				agentDescription:   tt.fields.agentDescription,
 				opampClient:        tt.fields.opampClient,
 				remoteConfigStatus: tt.fields.remoteConfigStatus,

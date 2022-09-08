@@ -53,7 +53,7 @@ func Test_stateManager_Load(t *testing.T) {
 		name       string
 		fields     fields
 		beforeHook func(*testing.T, *stateManager)
-		want       agentState
+		want       *agentState
 		wantErr    bool
 		wantErrMsg string
 	}{
@@ -111,12 +111,12 @@ func Test_stateManager_Load(t *testing.T) {
 				statePath: filepath.Join(t.TempDir(), "ot-opamp-state-test"),
 			},
 			beforeHook: func(t *testing.T, m *stateManager) {
-				state := agentState{
+				state := &agentState{
 					InstanceId: "foo",
 				}
 				require.NoError(t, m.Save(state))
 			},
-			want: agentState{
+			want: &agentState{
 				InstanceId: "foo",
 			},
 		},
@@ -150,7 +150,7 @@ func Test_stateManager_Save(t *testing.T) {
 		statePath string
 	}
 	type args struct {
-		state agentState
+		state *agentState
 	}
 	tests := []struct {
 		name       string
@@ -165,7 +165,7 @@ func Test_stateManager_Save(t *testing.T) {
 				statePath: filepath.Join(t.TempDir(), "ot-opamp-state-test"),
 			},
 			args: args{
-				state: agentState{},
+				state: &agentState{},
 			},
 			wantErr:    true,
 			wantErrMsg: "instance id is empty",
@@ -176,7 +176,7 @@ func Test_stateManager_Save(t *testing.T) {
 				statePath: "/foo/bar/fake/path",
 			},
 			args: args{
-				state: agentState{
+				state: &agentState{
 					InstanceId: newInstanceId(),
 				},
 			},
@@ -186,7 +186,7 @@ func Test_stateManager_Save(t *testing.T) {
 		{
 			name: "saves state without errors",
 			args: args{
-				state: agentState{
+				state: &agentState{
 					InstanceId: newInstanceId(),
 				},
 			},
