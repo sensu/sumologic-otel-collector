@@ -7,9 +7,9 @@ import (
 	"sync"
 )
 
-type ErrEmptyInstanceId struct{}
+type EmptyInstanceIdError struct{}
 
-func (e *ErrEmptyInstanceId) Error() string {
+func (e *EmptyInstanceIdError) Error() string {
 	return "instance id is empty"
 }
 
@@ -19,7 +19,7 @@ type agentState struct {
 
 func (s *agentState) validate() error {
 	if s.InstanceId == "" {
-		return &ErrEmptyInstanceId{}
+		return &EmptyInstanceIdError{}
 	}
 	return nil
 }
