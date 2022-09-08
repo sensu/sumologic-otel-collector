@@ -159,6 +159,8 @@ extensions:
   # Processors with non-upstreamed changes:
   - gomod: "github.com/SumoLogic/sumologic-otel-collector/pkg/extension/sumologicextension v0.0.0-00010101000000-000000000000"
     path: ./../pkg/extension/sumologicextension
+  - gomod: "github.com/SumoLogic/sumologic-otel-collector/pkg/extension/jobsextension v0.0.0-00010101000000-000000000000"
+    path: ./../pkg/extension/jobsextension
 
   # Since include-code was removed we need to manually add all core components that we want to include:
   # https://github.com/open-telemetry/opentelemetry-collector/pull/4616
