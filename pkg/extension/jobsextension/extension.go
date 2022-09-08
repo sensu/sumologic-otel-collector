@@ -16,6 +16,9 @@ package jobsextension
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"os/exec"
 
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/config"
@@ -34,9 +37,35 @@ func newJobsExtension(conf *Config, logger *zap.Logger) (*JobsExtension, error) 
 	}, nil
 }
 
-func (je *JobsExtension) Start(ctx context.Context, host component.Host) error {
-	je.logger.Info("Running Monitoring Jobs!")
+func (je *JobsExtension) runJob(job jobConfig) error {
+	je.logger.Info("Running Monitoring Job!")
+
+	cmd := exec.Command("sh", "-c", job.Exec.Command)
+
+	stdout, err := cmd.StdoutPipe()
+
+	if err != nil {
+		return err
+	}
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	output, err := io.ReadAll(stdout)
+
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(string(output))
+
 	return nil
+}
+
+func (je *JobsExtension) Start(ctx context.Context, host component.Host) error {
+	err := je.runJob(je.conf.Job)
+	return err
 }
 
 func (je *JobsExtension) Shutdown(ctx context.Context) error {

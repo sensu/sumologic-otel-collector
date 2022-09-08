@@ -41,7 +41,7 @@ func createDefaultConfig() config.Extension {
 				Interval: 10,
 			},
 			Exec: jobExecConfig{
-				Command: "true",
+				Command: "echo -n foobar",
 			},
 		},
 	}
