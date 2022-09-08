@@ -13,3 +13,8 @@ func (l *Logger) Debugf(format string, v ...interface{}) {
 func (l *Logger) Errorf(format string, v ...interface{}) {
 	l.Logger.Printf(format, v...)
 }
+
+type NoopLogger struct{}
+
+func (l *NoopLogger) Debugf(msg string, args ...interface{}) {}
+func (l *NoopLogger) Errorf(msg string, args ...interface{}) {}

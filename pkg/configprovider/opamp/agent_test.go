@@ -1,0 +1,596 @@
+// Copyright The OpenTelemetry Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//       http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+package opamp
+
+import (
+	"context"
+	"os"
+	"reflect"
+	"testing"
+
+	"github.com/oklog/ulid/v2"
+	"github.com/open-telemetry/opamp-go/client"
+	"github.com/open-telemetry/opamp-go/client/types"
+	"github.com/open-telemetry/opamp-go/protobufs"
+	"github.com/stretchr/testify/require"
+)
+
+func Test_newAgent(t *testing.T) {
+	type args struct {
+		logger    types.Logger
+		serverURL string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *Agent
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := newAgent(tt.args.logger, tt.args.serverURL); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("newAgent() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAgent_Start(t *testing.T) {
+	type fields struct {
+		logger             types.Logger
+		agentType          string
+		agentVersion       string
+		serverURL          string
+		effectiveConfig    string
+		configUpdated      chan bool
+		instanceId         string
+		agentDescription   *protobufs.AgentDescription
+		opampClient        client.OpAMPClient
+		remoteConfigStatus *protobufs.RemoteConfigStatus
+	}
+	tests := []struct {
+		name       string
+		fields     fields
+		wantErr    bool
+		wantErrMsg string
+	}{
+		{
+			name: "returns error when setting the agent description fails",
+			fields: fields{
+				logger: &NoopLogger{},
+			},
+			wantErr:    true,
+			wantErrMsg: "AgentDescription is nil",
+		},
+		{
+			name: "returns error when starting the client fails",
+			fields: fields{
+				logger: &NoopLogger{},
+				agentDescription: &protobufs.AgentDescription{
+					IdentifyingAttributes: []*protobufs.KeyValue{},
+				},
+			},
+			wantErr:    true,
+			wantErrMsg: "cannot set instance uid to empty value",
+		},
+		{
+			name: "can successfully start the client",
+			fields: fields{
+				logger: &NoopLogger{},
+				agentDescription: &protobufs.AgentDescription{
+					IdentifyingAttributes: []*protobufs.KeyValue{},
+				},
+				instanceId: newInstanceId(),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := &Agent{
+				logger:             tt.fields.logger,
+				agentType:          tt.fields.agentType,
+				agentVersion:       tt.fields.agentVersion,
+				serverURL:          tt.fields.serverURL,
+				effectiveConfig:    tt.fields.effectiveConfig,
+				configUpdated:      tt.fields.configUpdated,
+				instanceId:         tt.fields.instanceId,
+				agentDescription:   tt.fields.agentDescription,
+				opampClient:        tt.fields.opampClient,
+				remoteConfigStatus: tt.fields.remoteConfigStatus,
+			}
+			err := agent.Start()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Agent.Start() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil && err.Error() != tt.wantErrMsg {
+				t.Errorf("Agent.Start() error msg = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
+			}
+		})
+	}
+}
+
+func Test_instanceIdFilePath(t *testing.T) {
+	tests := []struct {
+		name string
+		want string
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := instanceIdFilePath(); got != tt.want {
+				t.Errorf("instanceIdFilePath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAgent_saveInstanceId(t *testing.T) {
+	type fields struct {
+		logger             types.Logger
+		agentType          string
+		agentVersion       string
+		serverURL          string
+		effectiveConfig    string
+		configUpdated      chan bool
+		instanceId         string
+		agentDescription   *protobufs.AgentDescription
+		opampClient        client.OpAMPClient
+		remoteConfigStatus *protobufs.RemoteConfigStatus
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := &Agent{
+				logger:             tt.fields.logger,
+				agentType:          tt.fields.agentType,
+				agentVersion:       tt.fields.agentVersion,
+				serverURL:          tt.fields.serverURL,
+				effectiveConfig:    tt.fields.effectiveConfig,
+				configUpdated:      tt.fields.configUpdated,
+				instanceId:         tt.fields.instanceId,
+				agentDescription:   tt.fields.agentDescription,
+				opampClient:        tt.fields.opampClient,
+				remoteConfigStatus: tt.fields.remoteConfigStatus,
+			}
+			if err := agent.saveInstanceId(); (err != nil) != tt.wantErr {
+				t.Errorf("Agent.saveInstanceId() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestAgent_createAgentId(t *testing.T) {
+	tests := []struct {
+		name       string
+		beforeHook func(t *testing.T)
+	}{
+		{
+			name: "generates an instance id when none exists",
+		},
+		{
+			name: "loads an instance id when one exists",
+			beforeHook: func(t *testing.T) {
+				// TODO: use stateManager to persist an instance id before attempting to load
+				f, err := os.OpenFile(instanceIdFilePath(), os.O_RDWR|os.O_CREATE, 0755)
+				require.NoError(t, err)
+				t.Cleanup(func() {
+					f.Close()
+
+				})
+
+				_, err = f.Write([]byte(newInstanceId()))
+				require.NoError(t, err)
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.beforeHook != nil {
+				tt.beforeHook(t)
+			}
+			agent := &Agent{}
+			agent.createAgentId()
+			if agent.instanceId == "" {
+				t.Error("Agent.createAgentId() instanceId is empty, want non-empty string")
+			}
+		})
+	}
+}
+
+func Test_stringKeyValue(t *testing.T) {
+	type args struct {
+		key   string
+		value string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *protobufs.KeyValue
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := stringKeyValue(tt.args.key, tt.args.value); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("stringKeyValue() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAgent_createAgentDescription(t *testing.T) {
+	type fields struct {
+		logger             types.Logger
+		agentType          string
+		agentVersion       string
+		serverURL          string
+		effectiveConfig    string
+		configUpdated      chan bool
+		instanceId         string
+		agentDescription   *protobufs.AgentDescription
+		opampClient        client.OpAMPClient
+		remoteConfigStatus *protobufs.RemoteConfigStatus
+	}
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := &Agent{
+				logger:             tt.fields.logger,
+				agentType:          tt.fields.agentType,
+				agentVersion:       tt.fields.agentVersion,
+				serverURL:          tt.fields.serverURL,
+				effectiveConfig:    tt.fields.effectiveConfig,
+				configUpdated:      tt.fields.configUpdated,
+				instanceId:         tt.fields.instanceId,
+				agentDescription:   tt.fields.agentDescription,
+				opampClient:        tt.fields.opampClient,
+				remoteConfigStatus: tt.fields.remoteConfigStatus,
+			}
+			agent.createAgentDescription()
+		})
+	}
+}
+
+func TestAgent_updateAgentIdentity(t *testing.T) {
+	type fields struct {
+		logger             types.Logger
+		agentType          string
+		agentVersion       string
+		serverURL          string
+		effectiveConfig    string
+		configUpdated      chan bool
+		instanceId         string
+		agentDescription   *protobufs.AgentDescription
+		opampClient        client.OpAMPClient
+		remoteConfigStatus *protobufs.RemoteConfigStatus
+	}
+	type args struct {
+		instanceId ulid.ULID
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := &Agent{
+				logger:             tt.fields.logger,
+				agentType:          tt.fields.agentType,
+				agentVersion:       tt.fields.agentVersion,
+				serverURL:          tt.fields.serverURL,
+				effectiveConfig:    tt.fields.effectiveConfig,
+				configUpdated:      tt.fields.configUpdated,
+				instanceId:         tt.fields.instanceId,
+				agentDescription:   tt.fields.agentDescription,
+				opampClient:        tt.fields.opampClient,
+				remoteConfigStatus: tt.fields.remoteConfigStatus,
+			}
+			agent.updateAgentIdentity(tt.args.instanceId)
+		})
+	}
+}
+
+func TestAgent_composeEffectiveConfig(t *testing.T) {
+	type fields struct {
+		logger             types.Logger
+		agentType          string
+		agentVersion       string
+		serverURL          string
+		effectiveConfig    string
+		configUpdated      chan bool
+		instanceId         string
+		agentDescription   *protobufs.AgentDescription
+		opampClient        client.OpAMPClient
+		remoteConfigStatus *protobufs.RemoteConfigStatus
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   *protobufs.EffectiveConfig
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := &Agent{
+				logger:             tt.fields.logger,
+				agentType:          tt.fields.agentType,
+				agentVersion:       tt.fields.agentVersion,
+				serverURL:          tt.fields.serverURL,
+				effectiveConfig:    tt.fields.effectiveConfig,
+				configUpdated:      tt.fields.configUpdated,
+				instanceId:         tt.fields.instanceId,
+				agentDescription:   tt.fields.agentDescription,
+				opampClient:        tt.fields.opampClient,
+				remoteConfigStatus: tt.fields.remoteConfigStatus,
+			}
+			if got := agent.composeEffectiveConfig(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Agent.composeEffectiveConfig() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAgent_effectiveConfigMap(t *testing.T) {
+	type fields struct {
+		logger             types.Logger
+		agentType          string
+		agentVersion       string
+		serverURL          string
+		effectiveConfig    string
+		configUpdated      chan bool
+		instanceId         string
+		agentDescription   *protobufs.AgentDescription
+		opampClient        client.OpAMPClient
+		remoteConfigStatus *protobufs.RemoteConfigStatus
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    map[string]interface{}
+		wantErr bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := &Agent{
+				logger:             tt.fields.logger,
+				agentType:          tt.fields.agentType,
+				agentVersion:       tt.fields.agentVersion,
+				serverURL:          tt.fields.serverURL,
+				effectiveConfig:    tt.fields.effectiveConfig,
+				configUpdated:      tt.fields.configUpdated,
+				instanceId:         tt.fields.instanceId,
+				agentDescription:   tt.fields.agentDescription,
+				opampClient:        tt.fields.opampClient,
+				remoteConfigStatus: tt.fields.remoteConfigStatus,
+			}
+			got, err := agent.effectiveConfigMap()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Agent.effectiveConfigMap() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Agent.effectiveConfigMap() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_agentConfigFileSlice_Less(t *testing.T) {
+	type args struct {
+		i int
+		j int
+	}
+	tests := []struct {
+		name string
+		a    agentConfigFileSlice
+		args args
+		want bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.a.Less(tt.args.i, tt.args.j); got != tt.want {
+				t.Errorf("agentConfigFileSlice.Less() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_agentConfigFileSlice_Swap(t *testing.T) {
+	type args struct {
+		i int
+		j int
+	}
+	tests := []struct {
+		name string
+		a    agentConfigFileSlice
+		args args
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.a.Swap(tt.args.i, tt.args.j)
+		})
+	}
+}
+
+func Test_agentConfigFileSlice_Len(t *testing.T) {
+	tests := []struct {
+		name string
+		a    agentConfigFileSlice
+		want int
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.a.Len(); got != tt.want {
+				t.Errorf("agentConfigFileSlice.Len() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAgent_applyRemoteConfig(t *testing.T) {
+	type fields struct {
+		logger             types.Logger
+		agentType          string
+		agentVersion       string
+		serverURL          string
+		effectiveConfig    string
+		configUpdated      chan bool
+		instanceId         string
+		agentDescription   *protobufs.AgentDescription
+		opampClient        client.OpAMPClient
+		remoteConfigStatus *protobufs.RemoteConfigStatus
+	}
+	type args struct {
+		config *protobufs.AgentRemoteConfig
+	}
+	tests := []struct {
+		name              string
+		fields            fields
+		args              args
+		wantConfigChanged bool
+		wantErr           bool
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := &Agent{
+				logger:             tt.fields.logger,
+				agentType:          tt.fields.agentType,
+				agentVersion:       tt.fields.agentVersion,
+				serverURL:          tt.fields.serverURL,
+				effectiveConfig:    tt.fields.effectiveConfig,
+				configUpdated:      tt.fields.configUpdated,
+				instanceId:         tt.fields.instanceId,
+				agentDescription:   tt.fields.agentDescription,
+				opampClient:        tt.fields.opampClient,
+				remoteConfigStatus: tt.fields.remoteConfigStatus,
+			}
+			gotConfigChanged, err := agent.applyRemoteConfig(tt.args.config)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Agent.applyRemoteConfig() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotConfigChanged != tt.wantConfigChanged {
+				t.Errorf("Agent.applyRemoteConfig() = %v, want %v", gotConfigChanged, tt.wantConfigChanged)
+			}
+		})
+	}
+}
+
+func TestAgent_Shutdown(t *testing.T) {
+	type fields struct {
+		logger             types.Logger
+		agentType          string
+		agentVersion       string
+		serverURL          string
+		effectiveConfig    string
+		configUpdated      chan bool
+		instanceId         string
+		agentDescription   *protobufs.AgentDescription
+		opampClient        client.OpAMPClient
+		remoteConfigStatus *protobufs.RemoteConfigStatus
+	}
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := &Agent{
+				logger:             tt.fields.logger,
+				agentType:          tt.fields.agentType,
+				agentVersion:       tt.fields.agentVersion,
+				serverURL:          tt.fields.serverURL,
+				effectiveConfig:    tt.fields.effectiveConfig,
+				configUpdated:      tt.fields.configUpdated,
+				instanceId:         tt.fields.instanceId,
+				agentDescription:   tt.fields.agentDescription,
+				opampClient:        tt.fields.opampClient,
+				remoteConfigStatus: tt.fields.remoteConfigStatus,
+			}
+			agent.Shutdown()
+		})
+	}
+}
+
+func TestAgent_onMessage(t *testing.T) {
+	type fields struct {
+		logger             types.Logger
+		agentType          string
+		agentVersion       string
+		serverURL          string
+		effectiveConfig    string
+		configUpdated      chan bool
+		instanceId         string
+		agentDescription   *protobufs.AgentDescription
+		opampClient        client.OpAMPClient
+		remoteConfigStatus *protobufs.RemoteConfigStatus
+	}
+	type args struct {
+		ctx context.Context
+		msg *types.MessageData
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := &Agent{
+				logger:             tt.fields.logger,
+				agentType:          tt.fields.agentType,
+				agentVersion:       tt.fields.agentVersion,
+				serverURL:          tt.fields.serverURL,
+				effectiveConfig:    tt.fields.effectiveConfig,
+				configUpdated:      tt.fields.configUpdated,
+				instanceId:         tt.fields.instanceId,
+				agentDescription:   tt.fields.agentDescription,
+				opampClient:        tt.fields.opampClient,
+				remoteConfigStatus: tt.fields.remoteConfigStatus,
+			}
+			agent.onMessage(tt.args.ctx, tt.args.msg)
+		})
+	}
+}

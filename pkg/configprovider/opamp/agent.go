@@ -133,11 +133,12 @@ func instanceIdFilePath() string {
 	return filepath.Join(os.TempDir(), "ot-opamp-id")
 }
 
-func (agent *Agent) loadInstanceId() {
+func loadInstanceId() string {
 	data, err := os.ReadFile(instanceIdFilePath())
 	if err == nil && len(data) > 0 {
-		agent.instanceId = string(data)
+		return string(data)
 	}
+	return ""
 }
 
 func (agent *Agent) saveInstanceId() error {
@@ -152,12 +153,16 @@ func (agent *Agent) saveInstanceId() error {
 	return err
 }
 
+func newInstanceId() string {
+	entropy := ulid.Monotonic(rand.New(rand.NewSource(0)), 0)
+	return ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+}
+
 func (agent *Agent) createAgentId() {
-	agent.loadInstanceId()
+	agent.instanceId = loadInstanceId()
 
 	if agent.instanceId == "" {
-		entropy := ulid.Monotonic(rand.New(rand.NewSource(0)), 0)
-		agent.instanceId = ulid.MustNew(ulid.Timestamp(time.Now()), entropy).String()
+		agent.instanceId = newInstanceId()
 		agent.saveInstanceId()
 	}
 }
