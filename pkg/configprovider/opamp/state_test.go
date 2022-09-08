@@ -1,6 +1,7 @@
 package opamp
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -65,7 +66,7 @@ func Test_stateManager_Load(t *testing.T) {
 			wantErrMsg: "open /foo/bar/fake/path: no such file or directory",
 		},
 		{
-			name: "returns error when json unmarhaling fails",
+			name: "returns error when json unmarshaling fails",
 			fields: fields{
 				statePath: filepath.Join(t.TempDir(), "ot-opamp-state-test"),
 			},
@@ -77,9 +78,32 @@ func Test_stateManager_Load(t *testing.T) {
 				})
 
 				_, err = f.Write([]byte("{42"))
+				require.NoError(t, err)
 			},
 			wantErr:    true,
 			wantErrMsg: "invalid character '4' looking for beginning of object key string",
+		},
+		{
+			name: "returns error when validation fails",
+			fields: fields{
+				statePath: filepath.Join(t.TempDir(), "ot-opamp-state-test"),
+			},
+			beforeHook: func(t *testing.T, m *stateManager) {
+				f, err := os.OpenFile(m.StatePath(), os.O_RDWR|os.O_CREATE, 0755)
+				require.NoError(t, err)
+				t.Cleanup(func() {
+					f.Close()
+				})
+
+				state := agentState{}
+				bytes, err := json.Marshal(state)
+				require.NoError(t, err)
+
+				_, err = f.Write(bytes)
+				require.NoError(t, err)
+			},
+			wantErr:    true,
+			wantErrMsg: "instance id is empty",
 		},
 		{
 			name: "loads state without errors",
@@ -136,9 +160,25 @@ func Test_stateManager_Save(t *testing.T) {
 		wantErrMsg string
 	}{
 		{
+			name: "returns error when validation fails",
+			fields: fields{
+				statePath: filepath.Join(t.TempDir(), "ot-opamp-state-test"),
+			},
+			args: args{
+				state: agentState{},
+			},
+			wantErr:    true,
+			wantErrMsg: "instance id is empty",
+		},
+		{
 			name: "returns error when open file fails",
 			fields: fields{
 				statePath: "/foo/bar/fake/path",
+			},
+			args: args{
+				state: agentState{
+					InstanceId: newInstanceId(),
+				},
 			},
 			wantErr:    true,
 			wantErrMsg: "open /foo/bar/fake/path: no such file or directory",

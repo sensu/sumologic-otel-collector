@@ -7,8 +7,21 @@ import (
 	"sync"
 )
 
+type ErrEmptyInstanceId struct{}
+
+func (e *ErrEmptyInstanceId) Error() string {
+	return "instance id is empty"
+}
+
 type agentState struct {
 	InstanceId string `json:"instance_id"`
+}
+
+func (s *agentState) validate() error {
+	if s.InstanceId == "" {
+		return &ErrEmptyInstanceId{}
+	}
+	return nil
 }
 
 type stateManager struct {
@@ -38,10 +51,18 @@ func (m *stateManager) Load() (agentState, error) {
 	if err := json.Unmarshal(data, &state); err != nil {
 		return state, err
 	}
+
+	if err := state.validate(); err != nil {
+		return state, err
+	}
 	return state, nil
 }
 
 func (m *stateManager) Save(state agentState) error {
+	if err := state.validate(); err != nil {
+		return err
+	}
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
