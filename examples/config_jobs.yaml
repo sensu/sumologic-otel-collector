@@ -1,19 +1,15 @@
-extensions:
-  jobs:
-
 receivers:
-  hostmetrics:
-    collection_interval: 30s
-    scrapers:
-      load:
+  jobs:
+    job:
+      schedule:
+        interval: 10
 
 exporters:
   logging:
     logLevel: debug
 
 service:
-  extensions: [jobs]
   pipelines:
     metrics:
-      receivers: [hostmetrics]
+      receivers: [jobs]
       exporters: [logging]
