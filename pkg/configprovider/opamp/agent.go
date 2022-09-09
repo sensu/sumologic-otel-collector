@@ -54,7 +54,7 @@ type Agent struct {
 	remoteConfigStatus *protobufs.RemoteConfigStatus
 }
 
-func newAgent(logger types.Logger, serverURL string) *Agent {
+func newAgent(logger types.Logger, serverURL string) (*Agent, error) {
 	agent := &Agent{
 		logger:        logger,
 		state:         &agentState{},
@@ -65,14 +65,12 @@ func newAgent(logger types.Logger, serverURL string) *Agent {
 		configUpdated: make(chan bool),
 	}
 
-	// TODO: look into how to appropriately deal with errors that occur in
-	// config providers.
 	if err := agent.loadState(); err != nil {
-		panic("failed to load state")
+		return nil, err
 	}
 	agent.createAgentDescription()
 
-	return agent
+	return agent, nil
 }
 
 func (agent *Agent) Start() error {

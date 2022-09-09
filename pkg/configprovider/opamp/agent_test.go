@@ -31,15 +31,24 @@ func Test_newAgent(t *testing.T) {
 		serverURL string
 	}
 	tests := []struct {
-		name string
-		args args
-		want *Agent
+		name       string
+		args       args
+		want       *Agent
+		wantErr    bool
+		wantErrMsg string
 	}{
 		// TODO: Add test cases.
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := newAgent(tt.args.logger, tt.args.serverURL); !reflect.DeepEqual(got, tt.want) {
+			got, err := newAgent(tt.args.logger, tt.args.serverURL)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("newAgent() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil && err.Error() != tt.wantErrMsg {
+				t.Errorf("newAgent() error msg = %v, wantErrMsg %v", err.Error(), tt.wantErrMsg)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("newAgent() = %v, want %v", got, tt.want)
 			}
 		})
