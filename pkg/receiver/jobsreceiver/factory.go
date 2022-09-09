@@ -16,7 +16,6 @@ package jobsreceiver
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.opentelemetry.io/collector/component"
@@ -32,10 +31,12 @@ const (
 
 // NewFactory creates a factory for jobs receiver.
 func NewFactory() component.ReceiverFactory {
+	jr := &jobsreceiver{}
 	return component.NewReceiverFactory(
 		typeStr,
 		createDefaultConfig,
-		component.WithMetricsReceiver(createMetricsReceiver, stabilityLevel),
+		component.WithLogsReceiver(createLogsReceiver(jr), stabilityLevel),
+		component.WithMetricsReceiver(createMetricsReceiver(jr), stabilityLevel),
 	)
 }
 
@@ -58,22 +59,38 @@ func createDefaultConfig() config.Receiver {
 	}
 }
 
-// createMetricsReceiver creates a metrics receiver based on provided config.
-func createMetricsReceiver(
-	ctx context.Context,
-	params component.ReceiverCreateSettings,
-	cfg config.Receiver,
-	nextConsumer consumer.Metrics,
-) (component.MetricsReceiver, error) {
-	tCfg, ok := cfg.(*Config)
-	if !ok {
-		return nil, fmt.Errorf("Failed reading jobs from OT configuration")
-	}
+func createLogsReceiver(jr *jobsreceiver) component.CreateLogsReceiverFunc {
+	return func(
+		ctx context.Context,
+		params component.ReceiverCreateSettings,
+		cfg config.Receiver,
+		nextConsumer consumer.Logs) (component.LogsReceiver, error) {
 
-	return &jobsreceiver{
-		metricsConsumer:   nextConsumer,
-		logger:            params.Logger,
-		consumeRetryDelay: tCfg.ConsumeRetryDelay,
-		consumeMaxRetries: tCfg.ConsumeMaxRetries,
-	}, nil
+		tCfg, _ := cfg.(*Config)
+
+		jr.logsConsumer = nextConsumer
+		jr.logger = params.Logger
+		jr.consumeRetryDelay = tCfg.ConsumeRetryDelay
+		jr.consumeMaxRetries = tCfg.ConsumeMaxRetries
+
+		return jr, nil
+	}
+}
+
+func createMetricsReceiver(jr *jobsreceiver) component.CreateMetricsReceiverFunc {
+	return func(
+		ctx context.Context,
+		params component.ReceiverCreateSettings,
+		cfg config.Receiver,
+		nextConsumer consumer.Metrics) (component.MetricsReceiver, error) {
+
+		tCfg, _ := cfg.(*Config)
+
+		jr.metricsConsumer = nextConsumer
+		jr.logger = params.Logger
+		jr.consumeRetryDelay = tCfg.ConsumeRetryDelay
+		jr.consumeMaxRetries = tCfg.ConsumeMaxRetries
+
+		return jr, nil
+	}
 }
