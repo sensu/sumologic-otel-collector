@@ -1,8 +1,9 @@
 receivers:
-  jobs:
-    job:
-      schedule:
-        interval: 10
+  monitoringjobs:
+    jobs:
+      - name: test
+        schedule:
+          interval: 10
 
 exporters:
   logging:
@@ -11,5 +12,8 @@ exporters:
 service:
   pipelines:
     metrics:
-      receivers: [jobs]
+      receivers: [monitoringjobs]
+      exporters: [logging]
+    logs:
+      receivers: [monitoringjobs]
       exporters: [logging]

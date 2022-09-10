@@ -31,8 +31,8 @@ type Config struct {
 	// ConsumeMaxRetries is the maximum number of retries for recoverable pipeline errors
 	ConsumeMaxRetries uint64 `mapstructure:"consume_max_retries"`
 
-	// Start with a single job
-	Job jobConfig `mapstructure:"job"`
+	// Monitoring jobs to execute
+	Jobs []jobConfig `mapstructure:"jobs"`
 }
 
 type jobConfig struct {

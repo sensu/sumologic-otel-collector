@@ -24,14 +24,14 @@ import (
 )
 
 const (
-	typeStr        = "jobs"
+	typeStr        = "monitoringjobs"
 	versionStr     = "v0.1"
 	stabilityLevel = component.StabilityLevelAlpha
 )
 
 // NewFactory creates a factory for jobs receiver.
 func NewFactory() component.ReceiverFactory {
-	jr := &jobsreceiver{}
+	jr := NewJobsReceiver()
 	return component.NewReceiverFactory(
 		typeStr,
 		createDefaultConfig,
@@ -47,15 +47,7 @@ func createDefaultConfig() config.Receiver {
 		ReceiverSettings:  &rs,
 		ConsumeRetryDelay: 500 * time.Millisecond,
 		ConsumeMaxRetries: 10,
-		Job: jobConfig{
-			Name: "default",
-			Schedule: jobScheduleConfig{
-				Interval: 10,
-			},
-			Exec: jobExecConfig{
-				Command: "echo -n foobar",
-			},
-		},
+		Jobs:              []jobConfig{},
 	}
 }
 
@@ -69,9 +61,22 @@ func createLogsReceiver(jr *jobsreceiver) component.CreateLogsReceiverFunc {
 		tCfg, _ := cfg.(*Config)
 
 		jr.logsConsumer = nextConsumer
-		jr.logger = params.Logger
-		jr.consumeRetryDelay = tCfg.ConsumeRetryDelay
-		jr.consumeMaxRetries = tCfg.ConsumeMaxRetries
+
+		if jr.config == nil {
+			jr.config = tCfg
+		}
+
+		if jr.logger == nil {
+			jr.logger = params.Logger
+		}
+
+		if jr.consumeRetryDelay == 0 {
+			jr.consumeRetryDelay = tCfg.ConsumeRetryDelay
+		}
+
+		if jr.consumeMaxRetries == 0 {
+			jr.consumeMaxRetries = tCfg.ConsumeMaxRetries
+		}
 
 		return jr, nil
 	}
@@ -87,9 +92,22 @@ func createMetricsReceiver(jr *jobsreceiver) component.CreateMetricsReceiverFunc
 		tCfg, _ := cfg.(*Config)
 
 		jr.metricsConsumer = nextConsumer
-		jr.logger = params.Logger
-		jr.consumeRetryDelay = tCfg.ConsumeRetryDelay
-		jr.consumeMaxRetries = tCfg.ConsumeMaxRetries
+
+		if jr.config == nil {
+			jr.config = tCfg
+		}
+
+		if jr.logger == nil {
+			jr.logger = params.Logger
+		}
+
+		if jr.consumeRetryDelay == 0 {
+			jr.consumeRetryDelay = tCfg.ConsumeRetryDelay
+		}
+
+		if jr.consumeMaxRetries == 0 {
+			jr.consumeMaxRetries = tCfg.ConsumeMaxRetries
+		}
 
 		return jr, nil
 	}

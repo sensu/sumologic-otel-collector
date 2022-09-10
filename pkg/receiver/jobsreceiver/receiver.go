@@ -17,6 +17,7 @@ package jobsreceiver
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"time"
 
@@ -29,12 +30,9 @@ import (
 	"go.uber.org/zap"
 )
 
-var (
-	ErrAlreadyStarted = errors.New("component already started")
-	ErrAlreadyStopped = errors.New("component already stopped")
-)
-
 type jobsreceiver struct {
+	config *Config
+
 	sync.Mutex
 	startOnce sync.Once
 	stopOnce  sync.Once
@@ -52,6 +50,13 @@ type jobsreceiver struct {
 	jobMetrics chan pmetric.Metrics
 }
 
+func NewJobsReceiver() *jobsreceiver {
+	return &jobsreceiver{
+		jobLogs:    make(chan plog.Logs),
+		jobMetrics: make(chan pmetric.Metrics),
+	}
+}
+
 // Ensure this receiver adheres to required interface.
 var _ component.MetricsReceiver = (*jobsreceiver)(nil)
 
@@ -65,9 +70,7 @@ func (r *jobsreceiver) Start(ctx context.Context, host component.Host) error {
 	r.Lock()
 	defer r.Unlock()
 
-	err := ErrAlreadyStarted
 	r.startOnce.Do(func() {
-		err = nil
 		rctx, cancel := context.WithCancel(ctx)
 		r.cancel = cancel
 
@@ -108,9 +111,11 @@ func (r *jobsreceiver) Start(ctx context.Context, host component.Host) error {
 				}
 			}
 		}()
+
+		r.scheduleJobs(rctx)
 	})
 
-	return err
+	return nil
 }
 
 // Consume logs and retry on recoverable errors
@@ -175,17 +180,26 @@ func (r *jobsreceiver) consumeMetricsWithRetry(ctx context.Context, metrics pmet
 	return err
 }
 
+func (r *jobsreceiver) scheduleJobs(context.Context) error {
+	for _, j := range r.config.Jobs {
+		fmt.Println(j)
+		go func() { r.jobLogs <- plog.Logs{} }()
+		go func() { r.jobMetrics <- pmetric.Metrics{} }()
+	}
+
+	return nil
+}
+
 // Shutdown is invoked during service shutdown.
 func (r *jobsreceiver) Shutdown(context.Context) error {
 	r.Lock()
 	defer r.Unlock()
 
-	err := ErrAlreadyStopped
 	r.stopOnce.Do(func() {
 		r.logger.Info("Stopping jobs receiver")
 		r.cancel()
 		r.wg.Wait()
-		err = nil
 	})
-	return err
+
+	return nil
 }
