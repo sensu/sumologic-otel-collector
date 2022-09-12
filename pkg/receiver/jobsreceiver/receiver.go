@@ -65,55 +65,70 @@ var _ component.LogsReceiver = (*jobsreceiver)(nil)
 
 // Start tells the receiver to start.
 func (r *jobsreceiver) Start(ctx context.Context, host component.Host) error {
-	r.logger.Info("Starting jobs receiver")
-
 	r.Lock()
 	defer r.Unlock()
 
+	var err error
 	r.startOnce.Do(func() {
 		rctx, cancel := context.WithCancel(ctx)
 		r.cancel = cancel
 
-		r.wg.Add(1)
-		go func() {
-			var lErr error
-			defer r.wg.Done()
-			for {
-				select {
-				case <-rctx.Done():
-					return
-				case l := <-r.jobLogs:
-					lErr = r.consumeLogsWithRetry(rctx, l)
-					if lErr != nil {
-						r.logger.Error("ConsumeLogs() error",
-							zap.String("error", lErr.Error()),
-						)
-					}
-				}
-			}
-		}()
+		if err = r.startLogsConsumer(rctx); err != nil {
+			return
+		}
 
-		r.wg.Add(1)
-		go func() {
-			var mErr error
-			defer r.wg.Done()
-			for {
-				select {
-				case <-rctx.Done():
-					return
-				case m := <-r.jobMetrics:
-					mErr = r.consumeMetricsWithRetry(rctx, m)
-					if mErr != nil {
-						r.logger.Error("ConsumeMetrics() error",
-							zap.String("error", mErr.Error()),
-						)
-					}
-				}
-			}
-		}()
+		if err = r.startMetricsConsumer(rctx); err != nil {
+			return
+		}
 
 		r.scheduleJobs(rctx)
 	})
+
+	return err
+}
+
+// Start the logs consumer
+func (r *jobsreceiver) startLogsConsumer(ctx context.Context) error {
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case l := <-r.jobLogs:
+				err := r.consumeLogsWithRetry(ctx, l)
+				if err != nil {
+					r.logger.Error("ConsumeLogs() error",
+						zap.String("error", err.Error()),
+					)
+				}
+			}
+		}
+	}()
+
+	return nil
+}
+
+// Start the metrics consumer
+func (r *jobsreceiver) startMetricsConsumer(ctx context.Context) error {
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case m := <-r.jobMetrics:
+				err := r.consumeMetricsWithRetry(ctx, m)
+				if err != nil {
+					r.logger.Error("ConsumeMetrics() error",
+						zap.String("error", err.Error()),
+					)
+				}
+			}
+		}
+	}()
 
 	return nil
 }
@@ -196,7 +211,6 @@ func (r *jobsreceiver) Shutdown(context.Context) error {
 	defer r.Unlock()
 
 	r.stopOnce.Do(func() {
-		r.logger.Info("Stopping jobs receiver")
 		r.cancel()
 		r.wg.Wait()
 	})
