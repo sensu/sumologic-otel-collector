@@ -5,7 +5,10 @@ receivers:
         schedule:
           interval: 10
         exec:
-          command: "echo foobar"
+          command: sh
+          arguments:
+            - -c
+            - "echo foobar"
 
 exporters:
   logging:

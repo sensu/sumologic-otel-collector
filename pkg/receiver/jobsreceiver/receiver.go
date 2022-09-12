@@ -195,16 +195,17 @@ func (r *jobsreceiver) consumeMetricsWithRetry(ctx context.Context, metrics pmet
 	return err
 }
 
-func (r *jobsreceiver) scheduleJobs(context.Context) error {
+func (r *jobsreceiver) scheduleJobs(ctx context.Context) error {
 	for _, j := range r.config.Jobs {
 		fmt.Println(j)
 
 		ex := ExecutionRequest{
-			Name:    j.Name,
-			Command: j.Exec.Command,
+			Name:      j.Name,
+			Command:   j.Exec.Command,
+			Arguments: j.Exec.Arguments,
 		}
 
-		er, err := ex.Execute(context.Background(), ex)
+		er, err := ex.Execute(ctx, ex)
 
 		if err != nil {
 			return err

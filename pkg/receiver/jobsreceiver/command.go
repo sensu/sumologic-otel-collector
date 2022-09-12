@@ -41,6 +41,9 @@ type ExecutionRequest struct {
 	// Command is the command to be executed.
 	Command string
 
+	// Arguments to execute the command with.
+	Arguments []string
+
 	// Env ...
 	Env []string
 
@@ -94,7 +97,7 @@ func (e *ExecutionRequest) Execute(ctx context.Context, execution ExecutionReque
 	defer timeout()
 
 	// Taken from Sensu-Spawn (Sensu 1.x.x).
-	cmd = Command(ctx, execution.Command)
+	cmd = Command(ctx, execution.Command, execution.Arguments)
 
 	// Set the ENV for the command if it is set
 	if len(execution.Env) > 0 {

@@ -46,5 +46,6 @@ type jobScheduleConfig struct {
 }
 
 type jobExecConfig struct {
-	Command string `mapstructure:"command"`
+	Command   string   `mapstructure:"command"`
+	Arguments []string `mapstructure:"arguments"`
 }

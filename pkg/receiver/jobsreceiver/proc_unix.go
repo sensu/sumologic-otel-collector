@@ -10,8 +10,8 @@ import (
 )
 
 // Command returns a command to execute a script through a shell.
-func Command(ctx context.Context, command string) *exec.Cmd {
-	return exec.CommandContext(ctx, "sh", "-c", command)
+func Command(ctx context.Context, command string, args []string) *exec.Cmd {
+	return exec.CommandContext(ctx, command, args...)
 }
 
 // KillProcess kills the command process and any child processes
