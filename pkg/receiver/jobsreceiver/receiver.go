@@ -198,6 +198,22 @@ func (r *jobsreceiver) consumeMetricsWithRetry(ctx context.Context, metrics pmet
 func (r *jobsreceiver) scheduleJobs(context.Context) error {
 	for _, j := range r.config.Jobs {
 		fmt.Println(j)
+
+		ex := ExecutionRequest{
+			Name:    j.Name,
+			Command: j.Exec.Command,
+		}
+
+		er, err := ex.Execute(context.Background(), ex)
+
+		if err != nil {
+			return err
+		}
+
+		fmt.Println("DONE!")
+		fmt.Println(er.Output)
+		fmt.Println(er.Status)
+
 		go func() { r.jobLogs <- plog.NewLogs() }()
 		go func() { r.jobMetrics <- pmetric.NewMetrics() }()
 	}

@@ -4,6 +4,8 @@ receivers:
       - name: test
         schedule:
           interval: 10
+        exec:
+          command: "echo foobar"
 
 exporters:
   logging:

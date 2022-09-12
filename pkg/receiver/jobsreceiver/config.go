@@ -38,7 +38,7 @@ type Config struct {
 type jobConfig struct {
 	Name     string            `mapstructure:"name"`
 	Schedule jobScheduleConfig `mapstructure:"schedule"`
-	Exec     jobExecConfig     `mapstructure:"type"`
+	Exec     jobExecConfig     `mapstructure:"exec"`
 }
 
 type jobScheduleConfig struct {
