@@ -20,6 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/SumoLogic/sumologic-otel-collector/pkg/receiver/jobsreceiver/command"
+	"github.com/SumoLogic/sumologic-otel-collector/pkg/receiver/jobsreceiver/transformers"
 	backoff "github.com/cenkalti/backoff/v4"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
@@ -221,7 +223,7 @@ func (r *jobsreceiver) scheduleJob(ctx context.Context, job jobConfig) error {
 }
 
 func (r *jobsreceiver) executeJobCommand(ctx context.Context, job jobConfig) error {
-	ex := ExecutionRequest{
+	ex := command.ExecutionRequest{
 		Name:      job.Name,
 		Command:   job.Exec.Command,
 		Arguments: job.Exec.Arguments,
@@ -238,19 +240,26 @@ func (r *jobsreceiver) executeJobCommand(ctx context.Context, job jobConfig) err
 	return err
 }
 
-func (r *jobsreceiver) createJobData(job jobConfig, er *ExecutionResponse) error {
-	logs, err := r.createJobLogs(job, er)
+func (r *jobsreceiver) createJobData(job jobConfig, er *command.ExecutionResponse) error {
+	l, err := r.createJobLogs(job, er)
 
 	if err != nil {
 		return err
 	}
 
-	go func() { r.jobLogs <- logs }()
+	go func() { r.jobLogs <- l }()
+
+	if job.Output.MetricFormat == "nagios_perfdata" {
+		t := transformers.ParseNagios(er)
+		m := t.Transform()
+
+		go func() { r.jobMetrics <- m }()
+	}
 
 	return nil
 }
 
-func (r *jobsreceiver) createJobLogs(job jobConfig, er *ExecutionResponse) (plog.Logs, error) {
+func (r *jobsreceiver) createJobLogs(job jobConfig, er *command.ExecutionResponse) (plog.Logs, error) {
 	l := plog.NewLogs()
 	rl := l.ResourceLogs().AppendEmpty()
 

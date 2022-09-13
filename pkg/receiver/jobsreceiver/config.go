@@ -39,6 +39,7 @@ type jobConfig struct {
 	Name     string            `mapstructure:"name"`
 	Schedule jobScheduleConfig `mapstructure:"schedule"`
 	Exec     jobExecConfig     `mapstructure:"exec"`
+	Output   jobOutputConfig   `mapstructure:"output"`
 }
 
 type jobScheduleConfig struct {
@@ -48,4 +49,8 @@ type jobScheduleConfig struct {
 type jobExecConfig struct {
 	Command   string   `mapstructure:"command"`
 	Arguments []string `mapstructure:"arguments"`
+}
+
+type jobOutputConfig struct {
+	MetricFormat string `mapstructure:"metric_format"`
 }

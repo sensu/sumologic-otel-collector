@@ -1,7 +1,4 @@
-//go:build !linux && !windows
-// +build !linux,!windows
-
-package jobsreceiver
+package command
 
 import (
 	"os/exec"
@@ -10,5 +7,5 @@ import (
 
 // SetProcessGroup sets the process group of the command process
 func SetProcessGroup(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.SysProcAttr.CreationFlags = syscall.CREATE_NEW_PROCESS_GROUP
 }

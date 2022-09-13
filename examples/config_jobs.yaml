@@ -8,7 +8,9 @@ receivers:
           command: sh
           arguments:
             - -c
-            - "echo foobar"
+            - "echo 'THIS IS FINE! | percent_packet_loss=0'"
+        output:
+          metric_format: nagios_perfdata
 
 exporters:
   logging:

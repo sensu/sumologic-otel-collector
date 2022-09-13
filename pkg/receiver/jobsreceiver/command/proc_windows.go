@@ -1,7 +1,7 @@
 //go:build windows
 // +build windows
 
-package jobsreceiver
+package command
 
 import (
 	"context"

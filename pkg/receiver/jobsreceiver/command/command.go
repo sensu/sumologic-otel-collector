@@ -1,4 +1,4 @@
-package jobsreceiver
+package command
 
 import (
 	"context"
