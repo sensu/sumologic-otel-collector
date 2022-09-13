@@ -17,7 +17,6 @@ package jobsreceiver
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"time"
 
@@ -197,29 +196,69 @@ func (r *jobsreceiver) consumeMetricsWithRetry(ctx context.Context, metrics pmet
 
 func (r *jobsreceiver) scheduleJobs(ctx context.Context) error {
 	for _, j := range r.config.Jobs {
-		fmt.Println(j)
-
-		ex := ExecutionRequest{
-			Name:      j.Name,
-			Command:   j.Exec.Command,
-			Arguments: j.Exec.Arguments,
-		}
-
-		er, err := ex.Execute(ctx, ex)
-
-		if err != nil {
-			return err
-		}
-
-		fmt.Println("DONE!")
-		fmt.Println(er.Output)
-		fmt.Println(er.Status)
-
-		go func() { r.jobLogs <- plog.NewLogs() }()
-		go func() { r.jobMetrics <- pmetric.NewMetrics() }()
+		r.scheduleJob(ctx, j)
 	}
 
 	return nil
+}
+
+func (r *jobsreceiver) scheduleJob(ctx context.Context, job jobConfig) error {
+	r.wg.Add(1)
+	go func() {
+		defer r.wg.Done()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(time.Duration(job.Schedule.Interval) * time.Second):
+				r.executeJobCommand(ctx, job)
+			}
+
+		}
+	}()
+
+	return nil
+}
+
+func (r *jobsreceiver) executeJobCommand(ctx context.Context, job jobConfig) error {
+	ex := ExecutionRequest{
+		Name:      job.Name,
+		Command:   job.Exec.Command,
+		Arguments: job.Exec.Arguments,
+	}
+
+	er, err := ex.Execute(ctx, ex)
+
+	if err != nil {
+		return err
+	}
+
+	err = r.createJobData(job, er)
+
+	return err
+}
+
+func (r *jobsreceiver) createJobData(job jobConfig, er *ExecutionResponse) error {
+	logs, err := r.createJobLogs(job, er)
+
+	if err != nil {
+		return err
+	}
+
+	go func() { r.jobLogs <- logs }()
+
+	return nil
+}
+
+func (r *jobsreceiver) createJobLogs(job jobConfig, er *ExecutionResponse) (plog.Logs, error) {
+	l := plog.NewLogs()
+	rl := l.ResourceLogs().AppendEmpty()
+
+	rl.Resource().Attributes().UpsertString("job.name", job.Name)
+	rl.Resource().Attributes().UpsertString("job.exec.output", er.Output)
+	rl.Resource().Attributes().UpsertInt("job.exec.status", int64(er.Status))
+
+	return l, nil
 }
 
 // Shutdown is invoked during service shutdown.
