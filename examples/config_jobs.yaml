@@ -10,7 +10,8 @@ receivers:
             - -c
             - "echo 'THIS IS FINE! | percent_packet_loss=0'"
         output:
-          metric_format: nagios_perfdata
+          metrics:
+            transformer: nagios_perfdata
 
 exporters:
   logging:

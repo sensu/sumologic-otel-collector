@@ -52,5 +52,9 @@ type jobExecConfig struct {
 }
 
 type jobOutputConfig struct {
-	MetricFormat string `mapstructure:"metric_format"`
+	Metrics jobOutputMetricsConfig `mapstructure:"metrics"`
+}
+
+type jobOutputMetricsConfig struct {
+	Transformer string `mapstructure:"transformer"`
 }

@@ -249,12 +249,13 @@ func (r *jobsreceiver) createJobData(job jobConfig, er *command.ExecutionRespons
 
 	go func() { r.jobLogs <- l }()
 
-	if job.Output.MetricFormat == "nagios_perfdata" {
-		t := transformers.ParseNagios(er)
-		m := t.Transform()
+	m, err := r.createJobMetrics(job, er)
 
-		go func() { r.jobMetrics <- m }()
+	if err != nil {
+		return err
 	}
+
+	go func() { r.jobMetrics <- m }()
 
 	return nil
 }
@@ -268,6 +269,17 @@ func (r *jobsreceiver) createJobLogs(job jobConfig, er *command.ExecutionRespons
 	rl.Resource().Attributes().UpsertInt("job.exec.status", int64(er.Status))
 
 	return l, nil
+}
+
+func (r *jobsreceiver) createJobMetrics(job jobConfig, er *command.ExecutionResponse) (pmetric.Metrics, error) {
+	m := pmetric.NewMetrics()
+
+	if job.Output.Metrics.Transformer == "nagios_perfdata" {
+		t := transformers.ParseNagios(er)
+		m = t.Transform()
+	}
+
+	return m, nil
 }
 
 // Shutdown is invoked during service shutdown.
