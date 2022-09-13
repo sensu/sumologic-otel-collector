@@ -5,10 +5,14 @@ receivers:
         schedule:
           interval: 3
         exec:
+          runtime_assets:
+            - name: monitoring-plugins
+              url: https://assets.bonsai.sensu.io/a7cfc70d3aa81ffd13ed3a7e55f2438c3c7e8f8e/monitoring-plugins-ubuntu2004_2.7.0_linux_amd64.tar.gz
+              sha512: 550adf669715d7b97bbcaadc2a310d508844cfc5a3e5571ee0290436f99143fe7af0927c7f1667e2f43a598c2969fb734d1297adf5b258e571a42c884f90271c
           command: sh
           arguments:
             - -c
-            - "echo 'THIS IS FINE! | percent_packet_loss=0'"
+            - "check_ntp_time -H time.nist.gov --warn 0.5 --critical 1.0"
         output:
           metrics:
             transformer: nagios_perfdata

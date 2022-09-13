@@ -17,6 +17,7 @@ package jobsreceiver
 import (
 	"time"
 
+	"github.com/SumoLogic/sumologic-otel-collector/pkg/receiver/jobsreceiver/asset"
 	"go.opentelemetry.io/collector/config"
 )
 
@@ -47,8 +48,9 @@ type jobScheduleConfig struct {
 }
 
 type jobExecConfig struct {
-	Command   string   `mapstructure:"command"`
-	Arguments []string `mapstructure:"arguments"`
+	Command       string               `mapstructure:"command"`
+	Arguments     []string             `mapstructure:"arguments"`
+	RuntimeAssets []asset.RuntimeAsset `mapstructure:"runtime_assets"`
 }
 
 type jobOutputConfig struct {

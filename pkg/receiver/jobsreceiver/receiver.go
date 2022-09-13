@@ -206,27 +206,51 @@ func (r *jobsreceiver) scheduleJobs(ctx context.Context) error {
 
 func (r *jobsreceiver) scheduleJob(ctx context.Context, job jobConfig) error {
 	r.wg.Add(1)
+	var err error
 	go func() {
 		defer r.wg.Done()
+
+		env, err := r.fetchJobAssets(ctx, job)
+		if err != nil {
+			return
+		}
+
 		for {
 			select {
 			case <-ctx.Done():
 				return
 			case <-time.After(time.Duration(job.Schedule.Interval) * time.Second):
-				r.executeJobCommand(ctx, job)
+				r.executeJobCommand(ctx, job, env)
 			}
 
 		}
 	}()
 
-	return nil
+	return err
 }
 
-func (r *jobsreceiver) executeJobCommand(ctx context.Context, job jobConfig) error {
+func (r *jobsreceiver) fetchJobAssets(ctx context.Context, job jobConfig) ([]string, error) {
+	env := []string{}
+
+	for _, r := range job.Exec.RuntimeAssets {
+		err := r.Install()
+
+		if err != nil {
+			return env, err
+		}
+
+		env = append(env, r.Env()...)
+	}
+
+	return env, nil
+}
+
+func (r *jobsreceiver) executeJobCommand(ctx context.Context, job jobConfig, env []string) error {
 	ex := command.ExecutionRequest{
 		Name:      job.Name,
 		Command:   job.Exec.Command,
 		Arguments: job.Exec.Arguments,
+		Env:       env,
 	}
 
 	er, err := ex.Execute(ctx, ex)
