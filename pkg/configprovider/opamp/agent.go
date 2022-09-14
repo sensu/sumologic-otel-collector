@@ -23,6 +23,7 @@ import (
 	"sort"
 
 	"github.com/knadh/koanf"
+	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
 	"github.com/oklog/ulid/v2"
@@ -43,8 +44,6 @@ type Agent struct {
 
 	serverURL string
 
-	effectiveConfig string
-
 	configUpdated chan bool
 
 	agentDescription *protobufs.AgentDescription
@@ -54,28 +53,28 @@ type Agent struct {
 	remoteConfigStatus *protobufs.RemoteConfigStatus
 }
 
-func newAgent(logger types.Logger, serverURL string) (*Agent, error) {
-	agent := &Agent{
+func newAgent(logger types.Logger) *Agent {
+	return &Agent{
 		logger:        logger,
 		state:         &agentState{},
 		stateManager:  &stateManager{},
 		agentType:     "sumologic-otel-collector",
 		agentVersion:  "0.0.1",
-		serverURL:     serverURL,
 		configUpdated: make(chan bool),
 	}
-
-	if err := agent.loadState(); err != nil {
-		return nil, err
-	}
-	agent.createAgentDescription()
-
-	return agent, nil
 }
 
-func (agent *Agent) Start() error {
+func (agent *Agent) Start(serverURL string) error {
 	agent.logger.Debugf("Agent starting, id=%v, type=%s, version=%s.",
 		agent.state.InstanceId, agent.agentType, agent.agentVersion)
+
+	agent.serverURL = serverURL
+
+	if err := agent.loadState(); err != nil {
+		return err
+	}
+
+	agent.createAgentDescription()
 
 	agent.opampClient = client.NewWebSocket(agent.logger)
 
@@ -100,13 +99,16 @@ func (agent *Agent) Start() error {
 				agent.logger.Errorf("Failed to connect to the server: %v", err)
 			},
 			OnErrorFunc: func(err *protobufs.ServerErrorResponse) {
+				fmt.Println("OnErrorFunc")
 				agent.logger.Errorf("Server returned an error response: %v", err.ErrorMessage)
 			},
 			SaveRemoteConfigStatusFunc: func(_ context.Context, status *protobufs.RemoteConfigStatus) {
+				fmt.Println("SaveRemoteConfigStatusFunc")
 				agent.remoteConfigStatus = status
 			},
 			GetEffectiveConfigFunc: func(ctx context.Context) (*protobufs.EffectiveConfig, error) {
-				return agent.composeEffectiveConfig(), nil
+				fmt.Println("GetEffectiveConfigFunc")
+				return agent.state.composeEffectiveConfig()
 			},
 			OnMessageFunc: agent.onMessage,
 		},
@@ -136,8 +138,10 @@ func (agent *Agent) Start() error {
 // agent.state field; or perhaps we should interact with loaded state through
 // stateManager.
 func (agent *Agent) loadState() error {
+	fmt.Println("loadState 1")
 	state, err := agent.stateManager.Load()
 	if err != nil {
+		fmt.Println("loadState 1 err:", err)
 		if errors.Is(err, os.ErrNotExist) {
 			state = newAgentState()
 			if err := agent.stateManager.Save(state); err != nil {
@@ -192,29 +196,19 @@ func (agent *Agent) updateAgentIdentity(instanceId ulid.ULID) {
 	agent.stateManager.Save(agent.state)
 }
 
-func (agent *Agent) composeEffectiveConfig() *protobufs.EffectiveConfig {
-	return &protobufs.EffectiveConfig{
-		ConfigMap: &protobufs.AgentConfigMap{
-			ConfigMap: map[string]*protobufs.AgentConfigFile{
-				"": {Body: []byte(agent.effectiveConfig)},
-			},
-		},
-	}
-}
+// func (agent *Agent) effectiveConfigMap() map[string]interface{} {
+// var k = koanf.New(".")
+// 	err := k.Load(rawbytes.Provider([]byte(agent.state.EffectiveConfig)), yaml.Parser())
 
-func (agent *Agent) effectiveConfigMap() (map[string]interface{}, error) {
-	var k = koanf.New(".")
-	err := k.Load(rawbytes.Provider([]byte(agent.effectiveConfig)), yaml.Parser())
+// 	if err != nil {
+// 		return k.Raw(), err
+// 	}
 
-	if err != nil {
-		return k.Raw(), err
-	}
+// 	// Bindplane returning configuration that doesn't work with our OT distribution.
+// 	k.Delete("labels")
 
-	// Bindplane returning configuration that doesn't work with our OT distribution.
-	k.Delete("labels")
-
-	return k.Raw(), nil
-}
+// 	return k.Raw(), nil
+// }
 
 type agentConfigFileItem struct {
 	name string
@@ -238,7 +232,9 @@ func (a agentConfigFileSlice) Len() int {
 }
 
 func (agent *Agent) applyRemoteConfig(config *protobufs.AgentRemoteConfig) (configChanged bool, err error) {
+	fmt.Println("applyRemoteConfig")
 	if config == nil {
+		fmt.Println("CONFIG IS NIL")
 		return false, nil
 	}
 
@@ -283,16 +279,26 @@ func (agent *Agent) applyRemoteConfig(config *protobufs.AgentRemoteConfig) (conf
 	}
 
 	// The merged final result is our effective config.
-	effectiveConfigBytes, err := k.Marshal(yaml.Parser())
+	newEffectiveConfigJson, err := k.Marshal(json.Parser())
 	if err != nil {
 		panic(err)
 	}
 
-	newEffectiveConfig := string(effectiveConfigBytes)
+	oldEffectiveConfigJson, err := json.Parser().Marshal(agent.state.EffectiveConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("OLD CONFIG: %s\n", string(oldEffectiveConfigJson))
+	fmt.Printf("NEW CONFIG: %s\n", string(newEffectiveConfigJson))
+
 	configChanged = false
-	if agent.effectiveConfig != newEffectiveConfig {
+	if string(oldEffectiveConfigJson) != string(newEffectiveConfigJson) {
 		agent.logger.Debugf("Effective config changed. Need to report to server.")
-		agent.effectiveConfig = newEffectiveConfig
+		agent.state.EffectiveConfig = k.Raw()
+		if err := agent.stateManager.Save(agent.state); err != nil {
+			return false, fmt.Errorf("error saving state: %w", err)
+		}
 		configChanged = true
 	}
 
@@ -307,8 +313,10 @@ func (agent *Agent) Shutdown() {
 }
 
 func (agent *Agent) onMessage(ctx context.Context, msg *types.MessageData) {
+	fmt.Println("onMessage")
 	configChanged := false
 	if msg.RemoteConfig != nil {
+		fmt.Println("RemoteConfig is not nil")
 		var err error
 		configChanged, err = agent.applyRemoteConfig(msg.RemoteConfig)
 		if err != nil {
@@ -323,6 +331,8 @@ func (agent *Agent) onMessage(ctx context.Context, msg *types.MessageData) {
 				Status:               protobufs.RemoteConfigStatus_APPLIED,
 			})
 		}
+	} else {
+		fmt.Println("RemoteConfig is nil")
 	}
 
 	if msg.AgentIdentification != nil {
@@ -333,7 +343,9 @@ func (agent *Agent) onMessage(ctx context.Context, msg *types.MessageData) {
 		agent.updateAgentIdentity(newInstanceId)
 	}
 
+	fmt.Println("BEFORE CONFIG CHANGED")
 	if configChanged {
+		fmt.Println("CONFIG IS CHANGED")
 		err := agent.opampClient.UpdateEffectiveConfig(ctx)
 		if err != nil {
 			agent.logger.Errorf(err.Error())

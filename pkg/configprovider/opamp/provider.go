@@ -20,6 +20,8 @@ import (
 	"log"
 	"strings"
 
+	"github.com/knadh/koanf"
+	kconfmap "github.com/knadh/koanf/providers/confmap"
 	"go.opentelemetry.io/collector/confmap"
 )
 
@@ -28,51 +30,57 @@ const (
 )
 
 type provider struct {
-	opampAgent Agent
+	opampAgent *Agent
 }
 
 func New() confmap.Provider {
-	return &provider{}
+	fmt.Println("New")
+
+	logger := &Logger{log.Default()}
+
+	return &provider{
+		opampAgent: newAgent(logger),
+	}
 }
 
 func (fmp *provider) Retrieve(ctx context.Context, uri string, watcher confmap.WatcherFunc) (confmap.Retrieved, error) {
+	fmt.Println("Retrieve")
+
 	if !strings.HasPrefix(uri, schemeName+":") {
 		return confmap.Retrieved{}, fmt.Errorf("%q uri is not supported by %q provider", uri, schemeName)
 	}
-
 	opampEndpoint := uri[len(schemeName)+1:]
 
-	opampAgent, err := newAgent(&Logger{log.Default()}, opampEndpoint)
-	if err != nil {
-		return confmap.Retrieved{}, err
-	}
-	fmp.opampAgent = *opampAgent
-
-	if err := fmp.opampAgent.Start(); err != nil {
+	if err := fmp.opampAgent.Start(opampEndpoint); err != nil {
 		return confmap.Retrieved{}, err
 	}
 
+	fmt.Println("BEFORE INITIAL CONFIG UPDATED")
 	<-fmp.opampAgent.configUpdated
-
-	conf, err := fmp.opampAgent.effectiveConfigMap()
-
-	if err != nil {
-		return confmap.Retrieved{}, err
-	}
+	fmt.Println("AFTER INITIAL CONFIG UPDATED")
 
 	go func() {
 		<-fmp.opampAgent.configUpdated
+		fmt.Println("CONFIG UPDATED!")
 		watcher(&confmap.ChangeEvent{})
 	}()
 
-	return confmap.NewRetrieved(conf)
+	k := koanf.New(".")
+	if err := k.Load(kconfmap.Provider(fmp.opampAgent.state.EffectiveConfig, "."), nil); err == nil {
+		return confmap.Retrieved{}, err
+	}
+	k.Delete("labels")
+
+	return confmap.NewRetrieved(k.Raw())
 }
 
 func (*provider) Scheme() string {
+	fmt.Println("Scheme")
 	return schemeName
 }
 
 func (fmp *provider) Shutdown(context.Context) error {
+	fmt.Println("Shutdown")
 	fmp.opampAgent.Shutdown()
 
 	return nil
