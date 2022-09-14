@@ -17,6 +17,7 @@ package jobsreceiver
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"time"
 
@@ -205,6 +206,10 @@ func (r *jobsreceiver) scheduleJobs(ctx context.Context) error {
 }
 
 func (r *jobsreceiver) scheduleJob(ctx context.Context, job jobConfig) error {
+	r.logger.Info("Scheduling monitoring job",
+		zap.String("job", job.Name),
+		zap.Int("interval", job.Schedule.Interval),
+	)
 	r.wg.Add(1)
 	var err error
 	go func() {
@@ -230,22 +235,36 @@ func (r *jobsreceiver) scheduleJob(ctx context.Context, job jobConfig) error {
 }
 
 func (r *jobsreceiver) fetchJobAssets(ctx context.Context, job jobConfig) ([]string, error) {
+	r.logger.Info("Fetching monitoring job runtime assets",
+		zap.String("job", job.Name),
+	)
 	env := []string{}
 
-	for _, r := range job.Exec.RuntimeAssets {
-		err := r.Install()
+	for _, a := range job.Exec.RuntimeAssets {
+		r.logger.Debug("Installing monitoring job runtime asset",
+			zap.String("job", job.Name),
+			zap.String("runtime_asset", a.Name),
+		)
+
+		err := a.Install()
 
 		if err != nil {
 			return env, err
 		}
 
-		env = append(env, r.Env()...)
+		env = append(env, a.Env()...)
 	}
 
 	return env, nil
 }
 
 func (r *jobsreceiver) executeJobCommand(ctx context.Context, job jobConfig, env []string) error {
+	r.logger.Info("Executing monitoring job command",
+		zap.String("job", job.Name),
+		zap.String("command", job.Exec.Command),
+		zap.String("arguments", strings.Join(job.Exec.Arguments, " ")),
+	)
+
 	ex := command.ExecutionRequest{
 		Name:      job.Name,
 		Command:   job.Exec.Command,

@@ -3,7 +3,7 @@ receivers:
     jobs:
       - name: test
         schedule:
-          interval: 3
+          interval: 5
         exec:
           runtime_assets:
             - name: monitoring-plugins
