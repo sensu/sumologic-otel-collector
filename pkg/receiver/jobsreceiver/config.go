@@ -51,6 +51,7 @@ type jobExecConfig struct {
 	Command       string               `mapstructure:"command"`
 	Arguments     []string             `mapstructure:"arguments"`
 	RuntimeAssets []asset.RuntimeAsset `mapstructure:"runtime_assets"`
+	Timeout       int                  `mapstructure:"timeout"`
 }
 
 type jobOutputConfig struct {

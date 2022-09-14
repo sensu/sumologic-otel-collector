@@ -27,6 +27,7 @@ import (
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/consumer"
 	"go.opentelemetry.io/collector/consumer/consumererror"
+	"go.opentelemetry.io/collector/pdata/pcommon"
 	"go.opentelemetry.io/collector/pdata/plog"
 	"go.opentelemetry.io/collector/pdata/pmetric"
 	"go.uber.org/zap"
@@ -241,7 +242,7 @@ func (r *jobsreceiver) fetchJobAssets(ctx context.Context, job jobConfig) ([]str
 	env := []string{}
 
 	for _, a := range job.Exec.RuntimeAssets {
-		r.logger.Debug("Installing monitoring job runtime asset",
+		r.logger.Info("Installing monitoring job runtime asset",
 			zap.String("job", job.Name),
 			zap.String("runtime_asset", a.Name),
 		)
@@ -270,6 +271,7 @@ func (r *jobsreceiver) executeJobCommand(ctx context.Context, job jobConfig, env
 		Command:   job.Exec.Command,
 		Arguments: job.Exec.Arguments,
 		Env:       env,
+		Timeout:   job.Exec.Timeout,
 	}
 
 	er, err := ex.Execute(ctx, ex)
@@ -307,9 +309,31 @@ func (r *jobsreceiver) createJobLogs(job jobConfig, er *command.ExecutionRespons
 	l := plog.NewLogs()
 	rl := l.ResourceLogs().AppendEmpty()
 
-	rl.Resource().Attributes().UpsertString("job.name", job.Name)
-	rl.Resource().Attributes().UpsertString("job.exec.output", er.Output)
-	rl.Resource().Attributes().UpsertInt("job.exec.status", int64(er.Status))
+	ra := rl.Resource().Attributes()
+	ra.UpsertString("job.name", job.Name)
+	ra.UpsertInt("job.schedule.interval", int64(job.Schedule.Interval))
+	ra.UpsertInt("job.exec.status", int64(er.Status))
+
+	sl := rl.ScopeLogs().AppendEmpty()
+	lr := sl.LogRecords().AppendEmpty()
+
+	lr.Body().SetStringVal(er.Output)
+
+	s := map[int]int{
+		0: 9,  // OK -> INFO
+		1: 13, // Warning -> WARN
+		2: 17, // Critical -> ERROR
+		3: 10, // Unknown -> INFO2
+	}
+
+	sn, _ := s[er.Status]
+	psn := plog.SeverityNumber(sn)
+	lr.SetSeverityNumber(psn)
+	lr.SetSeverityText(psn.String())
+
+	t := pcommon.NewTimestampFromTime(time.Now())
+	lr.SetTimestamp(t)
+	lr.SetObservedTimestamp(t)
 
 	return l, nil
 }

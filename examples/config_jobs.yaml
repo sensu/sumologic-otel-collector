@@ -1,9 +1,9 @@
 receivers:
   monitoringjobs:
     jobs:
-      - name: test
+      - name: ntp
         schedule:
-          interval: 5
+          interval: 10
         exec:
           runtime_assets:
             - name: monitoring-plugins
@@ -13,6 +13,7 @@ receivers:
           arguments:
             - -c
             - "check_ntp_time -H time.nist.gov --warn 0.5 --critical 1.0"
+          timeout: 8
         output:
           metrics:
             transformer: nagios_perfdata
