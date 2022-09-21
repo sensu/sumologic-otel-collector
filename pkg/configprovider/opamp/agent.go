@@ -23,6 +23,7 @@ import (
 	"sort"
 
 	"github.com/knadh/koanf"
+	"github.com/knadh/koanf/parsers/json"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/rawbytes"
 	"github.com/oklog/ulid/v2"
@@ -43,8 +44,6 @@ type Agent struct {
 
 	serverURL string
 
-	effectiveConfig string
-
 	configUpdated chan bool
 
 	agentDescription *protobufs.AgentDescription
@@ -54,28 +53,28 @@ type Agent struct {
 	remoteConfigStatus *protobufs.RemoteConfigStatus
 }
 
-func newAgent(logger types.Logger, serverURL string) (*Agent, error) {
-	agent := &Agent{
+func newAgent(logger types.Logger) *Agent {
+	return &Agent{
 		logger:        logger,
 		state:         &agentState{},
-		stateManager:  &stateManager{},
+		stateManager:  newStateManager(logger),
 		agentType:     "sumologic-otel-collector",
 		agentVersion:  "0.0.1",
-		serverURL:     serverURL,
 		configUpdated: make(chan bool),
 	}
-
-	if err := agent.loadState(); err != nil {
-		return nil, err
-	}
-	agent.createAgentDescription()
-
-	return agent, nil
 }
 
-func (agent *Agent) Start() error {
+func (agent *Agent) Start(serverURL string) error {
 	agent.logger.Debugf("Agent starting, id=%v, type=%s, version=%s.",
 		agent.state.InstanceId, agent.agentType, agent.agentVersion)
+
+	agent.serverURL = serverURL
+
+	if err := agent.loadState(); err != nil {
+		return err
+	}
+
+	agent.createAgentDescription()
 
 	agent.opampClient = client.NewWebSocket(agent.logger)
 
@@ -106,7 +105,7 @@ func (agent *Agent) Start() error {
 				agent.remoteConfigStatus = status
 			},
 			GetEffectiveConfigFunc: func(ctx context.Context) (*protobufs.EffectiveConfig, error) {
-				return agent.composeEffectiveConfig(), nil
+				return agent.state.EffectiveConfig.composeEffectiveConfigProto()
 			},
 			OnMessageFunc: agent.onMessage,
 		},
@@ -192,30 +191,6 @@ func (agent *Agent) updateAgentIdentity(instanceId ulid.ULID) {
 	agent.stateManager.Save(agent.state)
 }
 
-func (agent *Agent) composeEffectiveConfig() *protobufs.EffectiveConfig {
-	return &protobufs.EffectiveConfig{
-		ConfigMap: &protobufs.AgentConfigMap{
-			ConfigMap: map[string]*protobufs.AgentConfigFile{
-				"": {Body: []byte(agent.effectiveConfig)},
-			},
-		},
-	}
-}
-
-func (agent *Agent) effectiveConfigMap() (map[string]interface{}, error) {
-	var k = koanf.New(".")
-	err := k.Load(rawbytes.Provider([]byte(agent.effectiveConfig)), yaml.Parser())
-
-	if err != nil {
-		return k.Raw(), err
-	}
-
-	// Bindplane returning configuration that doesn't work with our OT distribution.
-	k.Delete("labels")
-
-	return k.Raw(), nil
-}
-
 type agentConfigFileItem struct {
 	name string
 	file *protobufs.AgentConfigFile
@@ -283,16 +258,23 @@ func (agent *Agent) applyRemoteConfig(config *protobufs.AgentRemoteConfig) (conf
 	}
 
 	// The merged final result is our effective config.
-	effectiveConfigBytes, err := k.Marshal(yaml.Parser())
+	newEffectiveConfigJson, err := k.Marshal(json.Parser())
 	if err != nil {
 		panic(err)
 	}
 
-	newEffectiveConfig := string(effectiveConfigBytes)
+	oldEffectiveConfigJson, err := json.Parser().Marshal(agent.state.EffectiveConfig)
+	if err != nil {
+		panic(err)
+	}
+
 	configChanged = false
-	if agent.effectiveConfig != newEffectiveConfig {
+	if string(oldEffectiveConfigJson) != string(newEffectiveConfigJson) {
 		agent.logger.Debugf("Effective config changed. Need to report to server.")
-		agent.effectiveConfig = newEffectiveConfig
+		agent.state.EffectiveConfig = k.Raw()
+		if err := agent.stateManager.Save(agent.state); err != nil {
+			return false, fmt.Errorf("error saving state: %w", err)
+		}
 		configChanged = true
 	}
 

@@ -28,44 +28,55 @@ const (
 )
 
 type provider struct {
-	opampAgent Agent
+	opampAgent *Agent
 }
 
 func New() confmap.Provider {
-	return &provider{}
+	logger := &Logger{log.Default()}
+
+	return &provider{
+		opampAgent: newAgent(logger),
+	}
 }
 
 func (fmp *provider) Retrieve(ctx context.Context, uri string, watcher confmap.WatcherFunc) (confmap.Retrieved, error) {
 	if !strings.HasPrefix(uri, schemeName+":") {
 		return confmap.Retrieved{}, fmt.Errorf("%q uri is not supported by %q provider", uri, schemeName)
 	}
-
 	opampEndpoint := uri[len(schemeName)+1:]
 
-	opampAgent, err := newAgent(&Logger{log.Default()}, opampEndpoint)
-	if err != nil {
-		return confmap.Retrieved{}, err
-	}
-	fmp.opampAgent = *opampAgent
-
-	if err := fmp.opampAgent.Start(); err != nil {
+	if err := fmp.opampAgent.loadState(); err != nil {
 		return confmap.Retrieved{}, err
 	}
 
-	<-fmp.opampAgent.configUpdated
+	configIsEmpty := true
+	if len(fmp.opampAgent.state.EffectiveConfig) > 0 {
+		configIsEmpty = false
+	}
 
-	conf, err := fmp.opampAgent.effectiveConfigMap()
-
-	if err != nil {
+	if err := fmp.opampAgent.Start(opampEndpoint); err != nil {
 		return confmap.Retrieved{}, err
 	}
 
+	// If no config was previously loaded loaded, wait for the first config to be
+	// received before kicking off the goroutine to listen for config updates.
+	if configIsEmpty {
+		<-fmp.opampAgent.configUpdated
+	}
+
+	// Listen for config updates and trigger a change event to internally reload
+	// the ot collector when one is received.
 	go func() {
 		<-fmp.opampAgent.configUpdated
 		watcher(&confmap.ChangeEvent{})
 	}()
 
-	return confmap.NewRetrieved(conf)
+	config, err := fmp.opampAgent.state.EffectiveConfig.composeOtConfig()
+	if err != nil {
+		return confmap.Retrieved{}, err
+	}
+
+	return confmap.NewRetrieved(config)
 }
 
 func (*provider) Scheme() string {
