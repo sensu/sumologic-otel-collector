@@ -49,11 +49,13 @@ type stateManager struct {
 	logger    types.Logger
 	mu        sync.RWMutex
 	statePath string
+	state     *agentState
 }
 
 func newStateManager(logger types.Logger) *stateManager {
 	return &stateManager{
 		logger: logger,
+		state:  &agentState{},
 	}
 }
 
@@ -65,30 +67,42 @@ func (m *stateManager) StatePath() string {
 	return m.statePath
 }
 
-func (m *stateManager) Load() (*agentState, error) {
+func (m *stateManager) GetState() *agentState {
+	return m.state
+}
+
+func (m *stateManager) SetState(state *agentState) {
+	m.state = state
+}
+
+func (m *stateManager) Load() error {
 	m.logger.Debugf("Loading state from path: %s.", m.StatePath())
 
 	m.mu.Lock()
 	data, err := os.ReadFile(m.StatePath())
 	if err != nil {
 		m.mu.Unlock()
-		return nil, err
+		return err
 	}
 	m.mu.Unlock()
 
 	var state *agentState
 	if err := json.Unmarshal(data, &state); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := state.validate(); err != nil {
-		return nil, err
+		return err
 	}
 
-	return state, nil
+	m.SetState(state)
+
+	return nil
 }
 
-func (m *stateManager) Save(state *agentState) error {
+func (m *stateManager) Save() error {
+	state := m.GetState()
+
 	if err := state.validate(); err != nil {
 		return err
 	}

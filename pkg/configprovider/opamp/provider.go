@@ -49,8 +49,10 @@ func (fmp *provider) Retrieve(ctx context.Context, uri string, watcher confmap.W
 		return confmap.Retrieved{}, err
 	}
 
+	state := fmp.opampAgent.stateManager.GetState()
+
 	configIsEmpty := true
-	if len(fmp.opampAgent.state.EffectiveConfig) > 0 {
+	if len(state.EffectiveConfig) > 0 {
 		configIsEmpty = false
 	}
 
@@ -71,7 +73,9 @@ func (fmp *provider) Retrieve(ctx context.Context, uri string, watcher confmap.W
 		watcher(&confmap.ChangeEvent{})
 	}()
 
-	config, err := fmp.opampAgent.state.EffectiveConfig.composeOtConfig()
+	state = fmp.opampAgent.stateManager.GetState()
+
+	config, err := state.EffectiveConfig.composeOtConfig()
 	if err != nil {
 		return confmap.Retrieved{}, err
 	}
