@@ -15,25 +15,21 @@
 package opamp
 
 import (
-	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/yaml"
-	"github.com/knadh/koanf/providers/confmap"
 	"github.com/open-telemetry/opamp-go/protobufs"
+	"go.opentelemetry.io/collector/confmap"
 )
 
 type config map[string]interface{}
 
 func (c *config) composeOtConfig() (map[string]interface{}, error) {
-	k := koanf.New(".")
-	provider := confmap.Provider(*c, ".")
-	if err := k.Load(provider, nil); err != nil {
-		return nil, err
-	}
+	// Make a copy of the string map.
+	sm := confmap.NewFromStringMap(*c).ToStringMap()
 
 	// Bindplane returning configuration that doesn't work with our OT distribution.
-	k.Delete("labels")
+	delete(sm, "labels")
 
-	return k.Raw(), nil
+	return sm, nil
 }
 
 func (c *config) composeEffectiveConfigProto() (*protobufs.EffectiveConfig, error) {
