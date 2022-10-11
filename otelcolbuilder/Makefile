@@ -5,10 +5,8 @@ BUILDER_REPO ?= github.com/open-telemetry/opentelemetry-collector
 BUILDER_BIN_NAME ?= opentelemetry-collector-builder
 
 ifeq ($(OS),Windows_NT)
-	@echo "Is Windows"
-	BUILDER_BIN_PATH ?= $(HOME)/bin
+	BUILDER_BIN_PATH ?= $(env:HOME)/bin
 else
-	@echo "Is not Windows"
 	BUILDER_BIN_PATH ?= $(HOME)/bin
 endif
 
