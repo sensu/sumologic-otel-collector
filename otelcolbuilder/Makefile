@@ -7,6 +7,7 @@ BUILDER_BIN_NAME ?= opentelemetry-collector-builder
 ifeq ($(OS),Windows_NT)
 	OS="windows"
 	SHELL="/bin/sh"
+	BUILDER_EXT=".exe"
 endif
 
 BUILDER_BIN_PATH ?= $(HOME)/bin
@@ -42,7 +43,7 @@ endif
 .PHONY: _install-bin
 _install-bin:
 	@mkdir -p $(HOME)/bin
-	curl -L -o $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)
+	curl -L -o $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)$(BUILDER_EXT)
 	@chmod +x $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME)
 	@$(MAKE) ensure-correct-builder-version
 
