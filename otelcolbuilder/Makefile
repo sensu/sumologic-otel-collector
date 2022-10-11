@@ -47,6 +47,8 @@ _install-bin:
 
 .PHONY: install-builder
 install-builder:
+	@echo "DEBUG: OS = $(OS)"
+	@echo "DEBUG: ARCH = $(ARCH)"
 	@echo "Installing $(BUILDER_REPO)/cmd/builder@v$(BUILDER_VERSION)... (in $(BUILDER_BIN_PATH))"
 	@$(MAKE) _install-bin PLATFORM=$(OS)
 
