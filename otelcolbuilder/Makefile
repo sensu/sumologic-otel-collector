@@ -5,10 +5,15 @@ BUILDER_REPO ?= github.com/open-telemetry/opentelemetry-collector
 BUILDER_BIN_NAME ?= opentelemetry-collector-builder
 
 ifeq ($(OS),Windows_NT)
+	SLASH ?= \
 	OS = "windows"
 	HOME ?= $(env:HOME)
+else
+	SLASH ?= /
 endif
-BUILDER_BIN_PATH ?= $(HOME)/bin
+
+BUILDER_BIN_PATH ?= $(HOME)$(SLASH)bin
+
 
 INSTALLED_BUILDER_VERSION := $(shell opentelemetry-collector-builder version 2>&1)
 GO ?= go
@@ -39,9 +44,9 @@ endif
 
 .PHONY: _install-bin
 _install-bin:
-	@mkdir -p /$(HOME)/bin
-	curl -L -o $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)
-	@chmod +x $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME)
+	@mkdir -p $(HOME)$(SLASH)bin
+	curl -L -o $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)
+	@chmod +x $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME)
 	@$(MAKE) ensure-correct-builder-version
 
 .PHONY: install-builder
