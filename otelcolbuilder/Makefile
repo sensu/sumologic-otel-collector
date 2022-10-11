@@ -4,11 +4,14 @@ FIPS_SUFFIX ?= ""
 BUILDER_REPO ?= github.com/open-telemetry/opentelemetry-collector
 BUILDER_BIN_NAME ?= opentelemetry-collector-builder
 
-BUILDER_BIN_PATH ?= $(HOME)/bin
-.if defined(WIN32) || defined(__WIN32__)
-  @echo "Is Windows"
-  BUILDER_BIN_PATH ?= $(HOME)/bin
-.endif
+ifeq ($(OS),Windows_NT)
+	@echo "Is Windows"
+	BUILDER_BIN_PATH ?= $(HOME)/bin
+else
+	@echo "Is not Windows"
+	BUILDER_BIN_PATH ?= $(HOME)/bin
+endif
+
 
 INSTALLED_BUILDER_VERSION := $(shell opentelemetry-collector-builder version 2>&1)
 GO ?= go
