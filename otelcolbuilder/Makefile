@@ -5,6 +5,7 @@ BUILDER_REPO ?= github.com/open-telemetry/opentelemetry-collector
 BUILDER_BIN_NAME ?= opentelemetry-collector-builder
 
 ifeq ($(OS),Windows_NT)
+	OS = "windows"
 	HOME ?= $(env:HOME)
 endif
 BUILDER_BIN_PATH ?= $(HOME)/bin
@@ -38,9 +39,6 @@ endif
 
 .PHONY: _install-bin
 _install-bin:
-	ifeq ($(OS),Windows_NT)
-		PLATFORM="windows"
-	endif
 	@mkdir -p /$(HOME)/bin
 	curl -L -o $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)
 	@chmod +x $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME)
