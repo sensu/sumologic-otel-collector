@@ -15,7 +15,7 @@ endif
 ifeq ($(OS),windows)
 	SHELL=/bin/sh
 	BUILDER_EXT ?= .exe
-	HOME ?= $(env:HOME)
+	HOME=$(env:HOME)
 endif
 
 BUILDER_BIN_PATH ?= $(HOME)/bin
