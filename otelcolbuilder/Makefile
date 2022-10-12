@@ -15,8 +15,8 @@ endif
 ifeq ($(OS),windows)
 	SHELL=/bin/sh
 	BUILDER_EXT ?= .exe
-	HOME ?= $(shell echo $HOME)
-	HOMETWO ?= $(shell echo $env:HOME)
+	HOME=$(shell echo $HOME)
+	HOMETWO=$(shell echo $env:HOME)
 endif
 
 BUILDER_BIN_PATH ?= $(HOME)/bin
