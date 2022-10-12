@@ -3,23 +3,17 @@ BUILDER_VERSION ?= 0.57.2
 FIPS_SUFFIX ?= ""
 BUILDER_REPO ?= github.com/open-telemetry/opentelemetry-collector
 BUILDER_BIN_NAME ?= opentelemetry-collector-builder
-
-ifeq ($(OS),Windows_NT)
-	OS="windows"
-	SHELL="/bin/sh"
-
-	BUILDER_EXT ?= ".exe"
-else
-	BUILDER_EXT ?= ""
-endif
-
-BUILDER_BIN_PATH ?= $(HOME)/bin
-
-
 INSTALLED_BUILDER_VERSION := $(shell opentelemetry-collector-builder version 2>&1)
 GO ?= go
 OS ?= $(shell uname -s | tr A-Z a-z)
-ARCH ?= $(shell uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/)
+ARCH ?= $(shell uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/ | sed s/Windows_NT/windows/)
+
+ifeq ($(OS),windows)
+	SHELL="/bin/sh"
+	BUILDER_EXT ?= ".exe"
+endif
+
+BUILDER_BIN_PATH ?= $(HOME)/bin
 
 # Builds for darwin need to be built with CGO_ENABLED set to 1 because some telegraf
 # plugins that are used within the telegrafreceiver are implemented with CGO.
@@ -54,6 +48,9 @@ _install-bin:
 install-builder:
 	@echo "DEBUG: OS = $(OS)"
 	@echo "DEBUG: ARCH = $(ARCH)"
+	@echo "DEBUG: SHELL = $(SHELL)"
+	@echo "DEBUG: BUILDER_EXT = $(BUILDER_EXT)"
+	@echo "DEBUG: HOME = $(HOME)"
 	@echo "Installing $(BUILDER_REPO)/cmd/builder@v$(BUILDER_VERSION)... (in $(BUILDER_BIN_PATH))"
 	@$(MAKE) _install-bin PLATFORM=$(OS)
 
