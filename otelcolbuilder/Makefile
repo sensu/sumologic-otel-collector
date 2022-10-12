@@ -8,6 +8,10 @@ GO ?= go
 OS ?= $(shell uname -s | tr A-Z a-z)
 ARCH ?= $(shell uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/ | sed s/Windows_NT/windows/)
 
+ifeq ($(OS),Windows_NT)
+	OS="windows"
+endif
+
 ifeq ($(OS),windows)
 	SHELL="/bin/sh"
 	BUILDER_EXT ?= ".exe"
