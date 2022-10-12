@@ -15,7 +15,8 @@ endif
 ifeq ($(OS),windows)
 	SHELL=/bin/sh
 	BUILDER_EXT ?= .exe
-	HOME=$(env:HOME)
+	HOME ?= $(shell echo $HOME)
+	HOMETWO ?= $(shell echo $env:HOME)
 endif
 
 BUILDER_BIN_PATH ?= $(HOME)/bin
@@ -56,6 +57,7 @@ install-builder:
 	@echo "DEBUG: SHELL = $(SHELL)"
 	@echo "DEBUG: BUILDER_EXT = $(BUILDER_EXT)"
 	@echo "DEBUG: HOME = $(HOME)"
+	@echo "DEBUG: HOMETWO = $(HOMETWO)"
 	@echo "Installing $(BUILDER_REPO)/cmd/builder@v$(BUILDER_VERSION)... (in $(BUILDER_BIN_PATH))"
 	@$(MAKE) _install-bin PLATFORM=$(OS)
 
