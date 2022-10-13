@@ -10,46 +10,46 @@ jobs:
 
   # Add lint to dev builds as that's the only way for cache to be shared across branches.
   # https://docs.github.com/en/actions/advanced-guides/caching-dependencies-to-speed-up-workflows#matching-a-cache-key
-  # lint:
-  #   name: Lint (golangci-lint)
-  #   runs-on: ubuntu-20.04
-  #   strategy:
-  #     matrix:
-  #       arch_os: [ 'linux_amd64' ]
-  #   steps:
-  #     - uses: actions/checkout@v3
-  #     - name: Setup go
-  #       uses: actions/setup-go@v3
-  #       with:
-  #         go-version: '1.18'
+  lint:
+    name: Lint (golangci-lint)
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        arch_os: [ 'linux_amd64' ]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.18'
 
-  #     # As described in
-  #     # https://github.com/mvdan/github-actions-golang#how-do-i-set-up-caching-between-builds
-  #     - uses: actions/cache@v3
-  #       with:
-  #         path: |
-  #           /home/runner/go/pkg/mod
-  #           /home/runner/.cache/go-build
-  #         key: ${{matrix.arch_os}}-go-${{ hashFiles('**/go.sum') }}
-  #         restore-keys: |
-  #           ${{matrix.arch_os}}-go-
+      # As described in
+      # https://github.com/mvdan/github-actions-golang#how-do-i-set-up-caching-between-builds
+      - uses: actions/cache@v3
+        with:
+          path: |
+            /home/runner/go/pkg/mod
+            /home/runner/.cache/go-build
+          key: ${{matrix.arch_os}}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{matrix.arch_os}}-go-
 
-  #     - uses: actions/cache@v3
-  #       with:
-  #         path: |
-  #           /home/runner/.cache/golangci-lint
-  #         key: ${{matrix.arch_os}}-golangcilint-${{ hashFiles('**/go.sum') }}
-  #         restore-keys: |
-  #           ${{matrix.arch_os}}-golangcilint-
+      - uses: actions/cache@v3
+        with:
+          path: |
+            /home/runner/.cache/golangci-lint
+          key: ${{matrix.arch_os}}-golangcilint-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{matrix.arch_os}}-golangcilint-
 
-  #     - name: Install golangci-lint
-  #       run: make install-golangci-lint
+      - name: Install golangci-lint
+        run: make install-golangci-lint
 
-  #     - name: Add opentelemetry-collector-builder installation dir to PATH
-  #       run: echo "$HOME/bin" >> $GITHUB_PATH
+      - name: Add opentelemetry-collector-builder installation dir to PATH
+        run: echo "$HOME/bin" >> $GITHUB_PATH
 
-  #     - name: Run golangci-lint
-  #       run: make golint
+      - name: Run golangci-lint
+        run: make golint
 
   build:
     name: Build
@@ -93,12 +93,15 @@ jobs:
             ${{matrix.arch_os}}-go-
 
       - name: Add opentelemetry-collector-builder installation dir to PATH
-        run: echo "HOME/bin" >> $GITHUB_PATH
+        run: echo "$HOME/bin" >> $GITHUB_PATH
         if: runner.os != 'Windows'
 
       - name: Add opentelemetry-collector-builder installation dir to PATH (Windows)
         run: echo "$env:RUNNER_TEMP/bin" >> $env:GITHUB_PATH
         if: runner.os == 'Windows'
+
+      - name: Set BUILDER_BIN_PATH (Windows)
+        run: echo "${env:RUNNER_TEMP}\bin" >> $env:GITHUB_PATH
 
       - name: Install opentelemetry-collector-builder
         run: make install-builder
@@ -114,6 +117,7 @@ jobs:
           go version -m otelcol-sumo-${{matrix.arch_os}} | \
           grep -E "/(receiver|exporter|processor|extension)/" | \
           tee otelcol-sumo-${{matrix.arch_os}}_modules.txt
+        shell: bash
 
       # TODO:
       # Move that out to a separate job and run on a corresponding's OS runner.

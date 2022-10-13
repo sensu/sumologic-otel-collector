@@ -13,15 +13,21 @@ endif
 ifeq ($(OS),windows)
 	SHELL=/bin/sh
 	SLASH ?= \\
-	BUILDER_EXT ?= .exe
+	BUILDER_BIN_EXT ?= .exe
+	HOME ?= $(env:HOME)
 else
 	SLASH ?= /
 endif
 
-BUILDER_BIN_NAME ?= opentelemetry-collector-builder$(BUILDER_EXT)
-# TODO: set this back to the original path, override it in GitHub Actions for
-# the Windows runner.
-BUILDER_BIN_PATH ?= $(RUNNER_TEMP)$(SLASH)bin
+BUILDER_BIN_NAME ?= opentelemetry-collector-builder$(BUILDER_BIN_EXT)
+BUILDER_BIN_PATH ?= $(HOME)$(SLASH)bin
+
+ifeq ($(OS),windows)
+	BUILDER_BIN_UNIX_PATH ?= $(shell cygpath -u $(BUILDER_BIN_PATH))
+else
+	BUILDER_BIN_UNIX_PATH ?= $(BUILDER_BIN_PATH)
+endif
+
 
 INSTALLED_BUILDER_VERSION := $(shell $(BUILDER_BIN_NAME) version 2>&1)
 
@@ -55,7 +61,7 @@ _install-bin:
 	@mkdir -p $(BUILDER_BIN_PATH)
 	ls -l $(BUILDER_BIN_PATH)
 	pwd
-	curl -L -o $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)$(BUILDER_EXT)
+	curl -L -o $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)$(BUILDER_BIN_EXT)
 	ls -l $(BUILDER_BIN_PATH)
 	@chmod +x $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME)
 	@$(MAKE) ensure-correct-builder-version
@@ -65,10 +71,8 @@ install-builder:
 	@echo "DEBUG: OS = $(OS)"
 	@echo "DEBUG: ARCH = $(ARCH)"
 	@echo "DEBUG: SHELL = $(SHELL)"
-	@echo "DEBUG: BUILDER_EXT = $(BUILDER_EXT)"
-	@echo "DEBUG: HOME = $(HOME)"
+	@echo "DEBUG: BUILDER_BIN_EXT = $(BUILDER_BIN_EXT)"
 	@echo "DEBUG: BUILDER_BIN_PATH = $(BUILDER_BIN_PATH)"
-	@echo "DEBUG: ls = $(LS)"
 	@echo "PWD: $(shell pwd)"
 	@echo "GIT 1: $(shell git describe)"
 	@echo "GIT 2: $(shell git describe --tags)"
@@ -100,7 +104,7 @@ _builder:
 	@echo "after eval"
 # Need to specify go path because otherwise opentelemetry-collector-builder
 # uses /usr/bin/go which on Github Actions is using preinstalled 1.15.12 by default.
-	CGO_ENABLED=$(CGO_ENABLED) $(shell cygpath -u $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME)) \
+	CGO_ENABLED=$(CGO_ENABLED) $(BUILDER_BIN_UNIX_PATH) \
 		--go $(GO) \
 		--version "$(VERSION)$(FIPS_SUFFIX)" \
 		--config .otelcol-builder.yaml \
