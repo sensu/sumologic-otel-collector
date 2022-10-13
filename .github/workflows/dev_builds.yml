@@ -72,7 +72,7 @@ jobs:
 
       - name: Fetch current branch
         run: ./ci/fetch_current_branch.sh
-        shell: bash
+        shell: gitbash.exe
 
       - name: Setup go
         uses: actions/setup-go@v3
