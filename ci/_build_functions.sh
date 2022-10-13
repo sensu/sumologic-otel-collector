@@ -3,8 +3,8 @@
 # shellcheck disable=SC2154
 
 err_report() {
-    echo "Script error on line $1"
-    exit 1
+  echo "Script error on line $1"
+  exit 1
 }
 trap 'err_report $LINENO' ERR
 
@@ -23,6 +23,8 @@ function fetch_current_branch() {
   # and we need to unshallow the repository because otherwise we'd get:
   # fatal: No tags can describe '<SHA>'.
   # Try --always, or create some tags.
+  echo "REMOTES: $(git remote -v)"
+  echo "BRANCH: ${BRANCH}"
   if [[ "true" == "$(git rev-parse --is-shallow-repository)" ]]; then
     git fetch -v --tags --unshallow origin "${BRANCH}"
   else
