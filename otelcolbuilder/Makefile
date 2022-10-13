@@ -12,7 +12,7 @@ endif
 
 ifeq ($(OS),windows)
 	SHELL=/bin/sh
-	BUILDER_EXT ?= ".exe"
+	BUILDER_EXT ?= .exe
 endif
 
 BUILDER_BIN_NAME ?= opentelemetry-collector-builder$(BUILDER_EXT)
