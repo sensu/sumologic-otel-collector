@@ -16,7 +16,7 @@ ifeq ($(OS),windows)
 endif
 
 BUILDER_BIN_NAME ?= opentelemetry-collector-builder$(BUILDER_EXT)
-BUILDER_BIN_PATH ?= $(RUNNER_TEMP)/bin
+BUILDER_BIN_PATH ?= $(shell echo $$RUNNER_TEMP)/bin
 INSTALLED_BUILDER_VERSION := $(shell $(BUILDER_BIN_NAME) version 2>&1)
 
 $(shell echo "$(BUILDER_BIN_PATH)" >> $GITHUB_PATH)
