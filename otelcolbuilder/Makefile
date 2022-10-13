@@ -12,11 +12,15 @@ endif
 
 ifeq ($(OS),windows)
 	SHELL=/bin/sh
+	SLASH ?= \\
 	BUILDER_EXT ?= .exe
+else
+	SLASH ?= /
 endif
 
 BUILDER_BIN_NAME ?= opentelemetry-collector-builder$(BUILDER_EXT)
-BUILDER_BIN_PATH ?= $(shell cygpath -u $$RUNNER_TEMP)/bin
+BUILDER_BIN_PATH ?= $(RUNNER_TEMP)$(SLASH)bin
+
 INSTALLED_BUILDER_VERSION := $(shell $(BUILDER_BIN_NAME) version 2>&1)
 
 $(shell echo "$(BUILDER_BIN_PATH)" >> $GITHUB_PATH)
@@ -47,12 +51,12 @@ endif
 
 .PHONY: _install-bin
 _install-bin:
-	$(shell mkdir -p $(BUILDER_BIN_PATH))
-	@echo "LS BIN PATH = $(shell ls -l $(BUILDER_BIN_PATH))"
-	@echo "PWD = $(shell pwd)"
-	curl -L -o $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)$(BUILDER_EXT)
-	@echo "LS BIN PATH = $(shell ls $(BUILDER_BIN_PATH))"
-	@chmod +x $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME)
+	@mkdir -p $(BUILDER_BIN_PATH)
+	ls -l $(BUILDER_BIN_PATH)
+	pwd
+	curl -L -o $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)$(BUILDER_EXT)
+	ls -l $(BUILDER_BIN_PATH)
+	@chmod +x $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME)
 	@$(MAKE) ensure-correct-builder-version
 
 .PHONY: install-builder
