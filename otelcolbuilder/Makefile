@@ -12,7 +12,7 @@ endif
 
 ifeq ($(OS),windows)
 	SHELL=/bin/sh
-	DIR_SLASH ?= \\
+	SLASH ?= \
 	PATH_SEPARATOR ?= ;
 	BUILDER_EXT ?= .exe
 else
