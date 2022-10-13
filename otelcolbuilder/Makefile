@@ -90,7 +90,9 @@ endif
 
 .PHONY: _builder
 _builder:
+	@echo "_builder-ing"
 	$(eval VERSION ?= $(shell git describe --tags --abbrev=10 --match "v[0-9]*"))
+	@echo "after eval"
 # Need to specify go path because otherwise opentelemetry-collector-builder
 # uses /usr/bin/go which on Github Actions is using preinstalled 1.15.12 by default.
 	CGO_ENABLED=$(CGO_ENABLED) $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME) \
