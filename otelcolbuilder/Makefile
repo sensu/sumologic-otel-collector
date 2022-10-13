@@ -7,7 +7,6 @@ INSTALLED_BUILDER_VERSION := $(shell opentelemetry-collector-builder version 2>&
 GO ?= go
 OS ?= $(shell uname -s | tr A-Z a-z)
 ARCH ?= $(shell uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/ | sed s/Windows_NT/windows/)
-LS ?= $(shell ls /c && ls /c/Users && ls /c/Users/runneradmin && ls /c/Users/runneradmin/bin)
 
 ifeq ($(OS),Windows_NT)
 	OS=windows
@@ -19,7 +18,9 @@ ifeq ($(OS),windows)
 	HOME=$(shell echo $$HOME)
 endif
 
-BUILDER_BIN_PATH ?= $(HOME)/bin
+BUILDER_BIN_PATH ?= $(RUNNER_TEMP)/bin
+
+LS ?= $(shell ls $(BUILDER_BIN_PATH))
 
 # Builds for darwin need to be built with CGO_ENABLED set to 1 because some telegraf
 # plugins that are used within the telegrafreceiver are implemented with CGO.
@@ -45,7 +46,7 @@ endif
 
 .PHONY: _install-bin
 _install-bin:
-	@mkdir -p $(HOME)/bin
+	@mkdir -p $(BUILDER_BIN_PATH)
 	curl -L -o $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)$(BUILDER_EXT)
 	@chmod +x $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME)
 	@$(MAKE) ensure-correct-builder-version
@@ -57,6 +58,7 @@ install-builder:
 	@echo "DEBUG: SHELL = $(SHELL)"
 	@echo "DEBUG: BUILDER_EXT = $(BUILDER_EXT)"
 	@echo "DEBUG: HOME = $(HOME)"
+	@echo "DEBUG: BUILDER_BIN_PATH = $(BUILDER_BIN_PATH)"
 	@echo "DEBUG: ls = $(LS)"
 	@echo "Installing $(BUILDER_REPO)/cmd/builder@v$(BUILDER_VERSION)... (in $(BUILDER_BIN_PATH))"
 	@$(MAKE) _install-bin PLATFORM=$(OS)
