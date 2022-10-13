@@ -2,8 +2,6 @@ BINARY_NAME ?= otelcol-sumo
 BUILDER_VERSION ?= 0.57.2
 FIPS_SUFFIX ?= ""
 BUILDER_REPO ?= github.com/open-telemetry/opentelemetry-collector
-BUILDER_BIN_NAME ?= opentelemetry-collector-builder
-INSTALLED_BUILDER_VERSION := $(shell opentelemetry-collector-builder version 2>&1)
 GO ?= go
 OS ?= $(shell uname -s | tr A-Z a-z)
 ARCH ?= $(shell uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/ | sed s/Windows_NT/windows/)
@@ -14,11 +12,14 @@ endif
 
 ifeq ($(OS),windows)
 	SHELL=/bin/sh
-	BUILDER_EXT ?= .exe
-	HOME=$(shell echo $$HOME)
+	BUILDER_EXT ?= ".exe"
 endif
 
+BUILDER_BIN_NAME ?= opentelemetry-collector-builder$(BUILDER_EXT)
 BUILDER_BIN_PATH ?= $(RUNNER_TEMP)/bin
+INSTALLED_BUILDER_VERSION := $(shell $(BUILDER_BIN_NAME) version 2>&1)
+
+$(shell echo "$(BUILDER_BIN_PATH)" >> $GITHUB_PATH)
 
 LS ?= $(shell ls $(BUILDER_BIN_PATH))
 
