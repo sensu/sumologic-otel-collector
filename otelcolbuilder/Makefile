@@ -12,10 +12,12 @@ endif
 
 ifeq ($(OS),windows)
 	SHELL=/bin/sh
-	SLASH ?= \\
+	DIR_SLASH ?= \
+	PATH_SEPARATOR ?= ;
 	BUILDER_EXT ?= .exe
 else
 	SLASH ?= /
+	PATH_SEPARATOR ?= :
 endif
 
 BUILDER_BIN_NAME ?= opentelemetry-collector-builder$(BUILDER_EXT)
@@ -23,7 +25,9 @@ BUILDER_BIN_PATH ?= $(RUNNER_TEMP)$(SLASH)bin
 
 INSTALLED_BUILDER_VERSION := $(shell $(BUILDER_BIN_NAME) version 2>&1)
 
-$(shell echo "$(BUILDER_BIN_PATH)" >> $GITHUB_PATH)
+export PATH := $(BUILDER_BIN_PATH)$(PATH_SEPARATOR)$(PATH)
+
+# $(shell echo "$(BUILDER_BIN_PATH)" >> $GITHUB_PATH)
 
 LS ?= $(shell ls $(BUILDER_BIN_PATH))
 
@@ -51,6 +55,7 @@ endif
 
 .PHONY: _install-bin
 _install-bin:
+	@echo "PATH = $(PATH)"
 	@mkdir -p $(BUILDER_BIN_PATH)
 	ls -l $(BUILDER_BIN_PATH)
 	pwd
