@@ -69,6 +69,10 @@ install-builder:
 	@echo "DEBUG: HOME = $(HOME)"
 	@echo "DEBUG: BUILDER_BIN_PATH = $(BUILDER_BIN_PATH)"
 	@echo "DEBUG: ls = $(LS)"
+	@echo $(shell git describe)
+	@echo $(shell git describe --tags)
+	@echo $(shell git describe --tags --abbrev=10)
+	@echo $(shell git describe --tags --abbrev=10 --match "v[0-9]*")
 	@echo "Installing $(BUILDER_REPO)/cmd/builder@v$(BUILDER_VERSION)... (in $(BUILDER_BIN_PATH))"
 	@$(MAKE) _install-bin PLATFORM=$(OS)
 
