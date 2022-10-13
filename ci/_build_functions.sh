@@ -9,6 +9,7 @@ err_report() {
 trap 'err_report $LINENO' ERR
 
 function fetch_current_branch() {
+  echo "test 2"
   echo "REMOTES: $(git remote -v)"
   # No need to fetch when we can already do 'git describe ...'
   git describe --tags >/dev/null && return
