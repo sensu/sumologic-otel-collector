@@ -118,6 +118,16 @@ jobs:
           grep -E "/(receiver|exporter|processor|extension)/" | \
           tee otelcol-sumo-${{matrix.arch_os}}_modules.txt
         shell: bash
+        if: runner.os != 'Windows'
+
+      - name: Show included modules
+        working-directory: ./otelcolbuilder/cmd
+        run: |
+          go version -m otelcol-sumo-${{matrix.arch_os}}.exe | \
+          grep -E "/(receiver|exporter|processor|extension)/" | \
+          tee otelcol-sumo-${{matrix.arch_os}}_modules.txt
+        shell: bash
+        if: runner.os == 'Windows'
 
       # TODO:
       # Move that out to a separate job and run on a corresponding's OS runner.
