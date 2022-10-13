@@ -72,10 +72,7 @@ jobs:
 
       - name: Fetch current branch
         run: ./ci/fetch_current_branch.sh
-
-      - name: Debug
-        run: dir
-        if: runner.os == 'Windows'
+        shell: bash
 
       - name: Setup go
         uses: actions/setup-go@v3
