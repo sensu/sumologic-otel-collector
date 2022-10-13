@@ -47,9 +47,9 @@ endif
 
 .PHONY: _install-bin
 _install-bin:
-	@mkdir -p $(BUILDER_BIN_PATH)
+	$(shell mkdir -p $(BUILDER_BIN_PATH))
 	curl -L -o $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)$(BUILDER_EXT)
-	@echo $(shell ls $(BUILDER_BIN_PATH))
+	@echo "LS BIN PATH = $(shell ls $(BUILDER_BIN_PATH))"
 	@chmod +x $(BUILDER_BIN_PATH)/$(BUILDER_BIN_NAME)
 	@$(MAKE) ensure-correct-builder-version
 
