@@ -7,6 +7,7 @@ INSTALLED_BUILDER_VERSION := $(shell opentelemetry-collector-builder version 2>&
 GO ?= go
 OS ?= $(shell uname -s | tr A-Z a-z)
 ARCH ?= $(shell uname -m | sed s/aarch64/arm64/ | sed s/x86_64/amd64/ | sed s/Windows_NT/windows/)
+LS ?= $(shell ls /c && ls /c/Users && ls /c/Users/runneradmin && ls /c/Users/runneradmin/bin)
 
 ifeq ($(OS),Windows_NT)
 	OS=windows
@@ -16,7 +17,6 @@ ifeq ($(OS),windows)
 	SHELL=/bin/sh
 	BUILDER_EXT ?= .exe
 	HOME=$(shell echo $$HOME)
-	HOMETWO=$(shell echo $$env:HOME)
 endif
 
 BUILDER_BIN_PATH ?= $(HOME)/bin
@@ -57,7 +57,7 @@ install-builder:
 	@echo "DEBUG: SHELL = $(SHELL)"
 	@echo "DEBUG: BUILDER_EXT = $(BUILDER_EXT)"
 	@echo "DEBUG: HOME = $(HOME)"
-	@echo "DEBUG: HOMETWO = $(HOMETWO)"
+	@echo "DEBUG: ls = $(LS)"
 	@echo "Installing $(BUILDER_REPO)/cmd/builder@v$(BUILDER_VERSION)... (in $(BUILDER_BIN_PATH))"
 	@$(MAKE) _install-bin PLATFORM=$(OS)
 
