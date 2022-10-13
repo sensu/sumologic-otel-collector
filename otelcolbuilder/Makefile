@@ -100,7 +100,7 @@ _builder:
 	@echo "after eval"
 # Need to specify go path because otherwise opentelemetry-collector-builder
 # uses /usr/bin/go which on Github Actions is using preinstalled 1.15.12 by default.
-	CGO_ENABLED=$(CGO_ENABLED) $(shell cygwin -u $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME)) \
+	CGO_ENABLED=$(CGO_ENABLED) $(shell cygpath -u $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME)) \
 		--go $(GO) \
 		--version "$(VERSION)$(FIPS_SUFFIX)" \
 		--config .otelcol-builder.yaml \
