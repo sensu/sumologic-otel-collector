@@ -101,7 +101,7 @@ jobs:
         if: runner.os == 'Windows'
 
       - name: Set BUILDER_BIN_PATH (Windows)
-        run: echo "${env:RUNNER_TEMP}\bin" >> $env:GITHUB_PATH
+        run: echo "BUILDER_BIN_PATH=${env:RUNNER_TEMP}\bin" >> $env:GITHUB_ENV
 
       - name: Install opentelemetry-collector-builder
         run: make install-builder
