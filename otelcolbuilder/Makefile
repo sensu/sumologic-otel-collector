@@ -64,6 +64,8 @@ _install-bin:
 	curl -L -o $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME) https://$(BUILDER_REPO)/releases/download/v$(BUILDER_VERSION)/ocb_$(BUILDER_VERSION)_$(PLATFORM)_$(ARCH)$(BUILDER_BIN_EXT)
 	ls -l $(BUILDER_BIN_PATH)
 	@chmod +x $(BUILDER_BIN_PATH)$(SLASH)$(BUILDER_BIN_NAME)
+	ls -l $(BUILDER_BIN_PATH)
+	@echo "PATH = $(PATH)"
 	@$(MAKE) ensure-correct-builder-version
 
 .PHONY: install-builder
