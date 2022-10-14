@@ -141,6 +141,15 @@ jobs:
           name: otelcol-sumo-${{matrix.arch_os}}
           path: ./otelcolbuilder/cmd/otelcol-sumo-${{matrix.arch_os}}
           if-no-files-found: error
+        if: runner.os != 'Windows'
+
+      - name: Store binary as action artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: otelcol-sumo-${{matrix.arch_os}}
+          path: ./otelcolbuilder/cmd/otelcol-sumo-${{matrix.arch_os}}.exe
+          if-no-files-found: error
+        if: runner.os == 'Windows'
 
       - name: Store list of included modules as action artifact
         uses: actions/upload-artifact@v3
