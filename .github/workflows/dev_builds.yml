@@ -97,7 +97,7 @@ jobs:
             ${{matrix.arch_os}}-go-
 
       - name: Override BUILDER_BIN_PATH if set in matrix
-        run: echo "BUILDER_BIN_PATH=${{matrix.builder_bin_path}}" >> $env:GITHUB_ENV
+        run: echo "BUILDER_BIN_PATH=${{matrix.builder_bin_path}}" >> $GITHUB_ENV
         if: ${{matrix.builder_bin_path}} != ''
 
       - name: Add opentelemetry-collector-builder installation dir to PATH

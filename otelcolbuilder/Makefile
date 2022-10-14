@@ -67,7 +67,6 @@ _install-bin:
 	ls -l $(BUILDER_BIN_PATH)
 	@echo "PATH = $(PATH)"
 	@echo $(shell echo $$PATH)
-	@echo $(shell echo $$env:PATH)
 	@$(MAKE) ensure-correct-builder-version
 
 .PHONY: install-builder
