@@ -68,9 +68,9 @@ jobs:
           # - arch_os: darwin_arm64
           #   runs_on: macos-latest
           - arch_os: windows_amd64
+            runs_on: windows-latest
             builder_bin_path: ${env:RUNNER_TEMP}\bin
             builder_bin_ext: .exe
-            runs_on: windows-latest
     steps:
       - uses: actions/checkout@v3
 

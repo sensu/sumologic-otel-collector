@@ -20,7 +20,7 @@ else
 endif
 
 BUILDER_BIN_NAME ?= opentelemetry-collector-builder$(BUILDER_BIN_EXT)
-BUILDER_BIN_PATH ?= $(HOME)$(SLASH)bin
+BUILDER_BIN_PATH ?= $(HOME)$(SLASH)bind
 
 ifeq ($(OS),windows)
 	BUILDER_BIN_UNIX_PATH ?= $(shell cygpath -u $(BUILDER_BIN_PATH))
