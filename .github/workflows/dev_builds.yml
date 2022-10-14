@@ -59,8 +59,8 @@ jobs:
     strategy:
       matrix:
         include:
-          # - arch_os: linux_amd64
-          #   runs_on: ubuntu-20.04
+          - arch_os: linux_amd64
+            runs_on: ubuntu-20.04
           # - arch_os: linux_arm64
           #   runs_on: ubuntu-20.04
           # - arch_os: darwin_amd64
