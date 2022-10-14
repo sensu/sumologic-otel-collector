@@ -87,6 +87,8 @@ install-builder:
 .PHONY: ensure-correct-builder-version
 ensure-correct-builder-version:
 ifneq ($(lastword $(INSTALLED_BUILDER_VERSION)),$(BUILDER_VERSION))
+	ls -l $(BUILDER_BIN_PATH)
+	@echo "PATH = $(PATH)"
 	@$(error Installed opentelemetry-collector-builder version \
 		"$(INSTALLED_BUILDER_VERSION)" \
 		does not match the requested "$(BUILDER_VERSION)" \
