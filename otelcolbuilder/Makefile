@@ -88,13 +88,15 @@ install-builder:
 .PHONY: ensure-correct-builder-version
 ensure-correct-builder-version:
 ifneq ($(lastword $(INSTALLED_BUILDER_VERSION)),$(BUILDER_VERSION))
-	ls -l $(BUILDER_BIN_PATH)
-	@echo "PATH = $(PATH)"
 	@$(error Installed opentelemetry-collector-builder version \
 		"$(INSTALLED_BUILDER_VERSION)" \
 		does not match the requested "$(BUILDER_VERSION)" \
 		Please check if "$(BUILDER_BIN_PATH)" can be found in your PATH \
 		and if not, then install it using 'make install-builder' from otelcolbuilder's directory\
+		\
+		PATH = $(PATH)\
+		\
+		LS = $(shell ls -l $(BUILDER_BIN_PATH))\
 	)
 else
 	@printf "Installed opentelemetry-collector-builder (%s) is at the correct version %s\n" \
