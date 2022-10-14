@@ -54,6 +54,8 @@ jobs:
   build:
     name: Build
     runs-on: ${{ matrix.runs_on }}
+    env:
+      BUILDER_BIN_PATH: $HOME/bin
     strategy:
       matrix:
         include:
@@ -66,7 +68,8 @@ jobs:
           # - arch_os: darwin_arm64
           #   runs_on: macos-latest
           - arch_os: windows_amd64
-            builder_ext: .exe
+            builder_bin_path: ${env:RUNNER_TEMP}\bin
+            builder_bin_ext: .exe
             runs_on: windows-latest
     steps:
       - uses: actions/checkout@v3
@@ -93,16 +96,12 @@ jobs:
           restore-keys: |
             ${{matrix.arch_os}}-go-
 
+      - name: Override BUILDER_BIN_PATH if set in matrix
+        run: echo "BUILDER_BIN_PATH=${{matrix.builder_bin_path}}" >> $env:GITHUB_ENV
+        if: matrix.builder_bin_path != ""
+
       - name: Add opentelemetry-collector-builder installation dir to PATH
-        run: echo "$HOME/bin" >> $GITHUB_PATH
-        if: runner.os != 'Windows'
-
-      - name: Add opentelemetry-collector-builder installation dir to PATH (Windows)
-        run: echo "$env:RUNNER_TEMP/bin" >> $env:GITHUB_PATH
-        if: runner.os == 'Windows'
-
-      - name: Set BUILDER_BIN_PATH (Windows)
-        run: echo "BUILDER_BIN_PATH=${env:RUNNER_TEMP}\bin" >> $env:GITHUB_ENV
+        run: echo "$BUILDER_BIN_PATH" >> $GITHUB_PATH
 
       - name: Install opentelemetry-collector-builder
         run: make install-builder
@@ -115,7 +114,7 @@ jobs:
       - name: Show included modules
         working-directory: ./otelcolbuilder/cmd
         run: |
-          go version -m otelcol-sumo-${{matrix.arch_os}}${{matrix.builder_ext}} | \
+          go version -m otelcol-sumo-${{matrix.arch_os}}${{matrix.builder_bin_ext}} | \
           grep -E "/(receiver|exporter|processor|extension)/" | \
           tee otelcol-sumo-${{matrix.arch_os}}_modules.txt
         shell: bash
@@ -130,7 +129,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: otelcol-sumo-${{matrix.arch_os}}
-          path: ./otelcolbuilder/cmd/otelcol-sumo-${{matrix.arch_os}}${{matrix.builder_ext}}
+          path: ./otelcolbuilder/cmd/otelcol-sumo-${{matrix.arch_os}}${{matrix.builder_bin_ext}}
           if-no-files-found: error
 
       - name: Store list of included modules as action artifact
