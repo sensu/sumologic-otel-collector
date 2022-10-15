@@ -111,7 +111,7 @@ jobs:
         run: cat $GITHUB_PATH
 
       - name: PATH
-        run: echo $PATH && exit 1
+        run: echo $PATH
 
       - name: Install opentelemetry-collector-builder
         run: make install-builder
