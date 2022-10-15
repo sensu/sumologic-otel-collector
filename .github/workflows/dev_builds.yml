@@ -54,8 +54,6 @@ jobs:
   build:
     name: Build
     runs-on: ${{ matrix.runs_on }}
-    env:
-      BUILDER_BIN_PATH: "$HOME/bin"
     strategy:
       matrix:
         include:
@@ -96,21 +94,24 @@ jobs:
           restore-keys: |
             ${{matrix.arch_os}}-go-
 
+      - name: Set default BUILDER_BIN_PATH
+        run: echo "BUILDER_BIN_PATH=${HOME}/bin" >> $GITHUB_ENV
+
       - name: Override BUILDER_BIN_PATH if set in matrix
         run: echo "BUILDER_BIN_PATH=${{matrix.builder_bin_path}}" >> $GITHUB_ENV
         if: matrix.builder_bin_path != ''
 
       - name: GITHUB_ENV
-        run: echo $GITHUB_ENV
+        run: cat $GITHUB_ENV
 
       - name: Add opentelemetry-collector-builder installation dir to PATH
         run: echo "$BUILDER_BIN_PATH" >> $GITHUB_PATH
 
       - name: GITHUB_PATH
-        run: echo $GITHUB_PATH
+        run: cat $GITHUB_PATH
 
       - name: PATH
-        run: echo $PATH
+        run: echo $PATH && exit 1
 
       - name: Install opentelemetry-collector-builder
         run: make install-builder
