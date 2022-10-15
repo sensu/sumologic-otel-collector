@@ -3,8 +3,8 @@
 # shellcheck disable=SC2154
 
 err_report() {
-  echo "Script error on line $1"
-  exit 1
+    echo "Script error on line $1"
+    exit 1
 }
 trap 'err_report $LINENO' ERR
 

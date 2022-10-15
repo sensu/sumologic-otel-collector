@@ -63,15 +63,15 @@ jobs:
         include:
           - arch_os: linux_amd64
             runs_on: ubuntu-20.04
-          # - arch_os: linux_arm64
-          #   runs_on: ubuntu-20.04
-          # - arch_os: darwin_amd64
-          #   runs_on: macos-latest
-          # - arch_os: darwin_arm64
-          #   runs_on: macos-latest
+          - arch_os: linux_arm64
+            runs_on: ubuntu-20.04
+          - arch_os: darwin_amd64
+            runs_on: macos-latest
+          - arch_os: darwin_arm64
+            runs_on: macos-latest
           - arch_os: windows_amd64
             runs_on: windows-2022
-            builder_bin_path: '${env:RUNNER_TEMP}\bin'
+            builder_bin_path: '${RUNNER_TEMP}\bin'
             builder_bin_ext: .exe
     steps:
       - uses: actions/checkout@v3
@@ -104,17 +104,8 @@ jobs:
         run: echo "BUILDER_BIN_PATH=${{matrix.builder_bin_path}}" >> $GITHUB_ENV
         if: matrix.builder_bin_path != ''
 
-      - name: GITHUB_ENV
-        run: cat $GITHUB_ENV
-
       - name: Add opentelemetry-collector-builder installation dir to PATH
         run: echo "$BUILDER_BIN_PATH" >> $GITHUB_PATH
-
-      - name: GITHUB_PATH
-        run: cat $GITHUB_PATH
-
-      - name: PATH
-        run: echo $PATH
 
       - name: Install opentelemetry-collector-builder
         run: make install-builder
@@ -152,180 +143,180 @@ jobs:
           if-no-files-found: error
 
   # pipeline to build FIPS compliance binary on Go+BoringCrypto
-  # build-fips:
-  #   name: Build
-  #   runs-on: ubuntu-20.04
-  #   strategy:
-  #     matrix:
-  #       go: [ '1.18.7b7' ]
-  #       arch_os: [ 'linux_amd64']
-  #   steps:
-  #     - uses: actions/checkout@v3
+  build-fips:
+    name: Build
+    runs-on: ubuntu-20.04
+    strategy:
+      matrix:
+        go: [ '1.18.7b7' ]
+        arch_os: [ 'linux_amd64']
+    steps:
+      - uses: actions/checkout@v3
 
-  #     - name: Fetch current branch
-  #       run: ./ci/fetch_current_branch.sh
+      - name: Fetch current branch
+        run: ./ci/fetch_current_branch.sh
 
-  #     - name: Install Go+BoringCrypto
-  #       run: |
-  #         curl -LJ "https://go-boringcrypto.storage.googleapis.com/go${{ matrix.go }}.linux-amd64.tar.gz" -o go.linux-amd64.tar.gz \
-  #           && sudo rm -rf /usr/local/go \
-  #           && sudo tar -C /usr/local -xzf go.linux-amd64.tar.gz \
-  #           && sudo rm go.linux-amd64.tar.gz \
-  #           && sudo ln -s /usr/local/go/bin/go /usr/local/bin
+      - name: Install Go+BoringCrypto
+        run: |
+          curl -LJ "https://go-boringcrypto.storage.googleapis.com/go${{ matrix.go }}.linux-amd64.tar.gz" -o go.linux-amd64.tar.gz \
+            && sudo rm -rf /usr/local/go \
+            && sudo tar -C /usr/local -xzf go.linux-amd64.tar.gz \
+            && sudo rm go.linux-amd64.tar.gz \
+            && sudo ln -s /usr/local/go/bin/go /usr/local/bin
 
-  #     # As described in
-  #     # https://github.com/mvdan/github-actions-golang#how-do-i-set-up-caching-between-builds
-  #     - uses: actions/cache@v3
-  #       with:
-  #         path: |
-  #           /home/runner/go/pkg/mod
-  #           /home/runner/.cache/go-build
-  #           /Users/runner/go/pkg/mod
-  #           /Users/runner/Library/Caches/go-build
-  #         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-go-
+      # As described in
+      # https://github.com/mvdan/github-actions-golang#how-do-i-set-up-caching-between-builds
+      - uses: actions/cache@v3
+        with:
+          path: |
+            /home/runner/go/pkg/mod
+            /home/runner/.cache/go-build
+            /Users/runner/go/pkg/mod
+            /Users/runner/Library/Caches/go-build
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
 
-  #     - name: Add opentelemetry-collector-builder installation dir to PATH
-  #       run: echo "$HOME/bin" >> $GITHUB_PATH
+      - name: Add opentelemetry-collector-builder installation dir to PATH
+        run: echo "$HOME/bin" >> $GITHUB_PATH
 
-  #     - name: Install opentelemetry-collector-builder
-  #       run: make install-builder
-  #       working-directory: ./otelcolbuilder
+      - name: Install opentelemetry-collector-builder
+        run: make install-builder
+        working-directory: ./otelcolbuilder
 
-  #     - name: Build
-  #       run: make otelcol-sumo-${{matrix.arch_os}} FIPS_SUFFIX="-fips" CGO_ENABLED=1
-  #       working-directory: ./otelcolbuilder
+      - name: Build
+        run: make otelcol-sumo-${{matrix.arch_os}} FIPS_SUFFIX="-fips" CGO_ENABLED=1
+        working-directory: ./otelcolbuilder
 
-  #     - name: Show included modules
-  #       working-directory: ./otelcolbuilder/cmd
-  #       run: |
-  #         go version -m otelcol-sumo-fips-${{matrix.arch_os}} | \
-  #         grep -E "/(receiver|exporter|processor|extension)/" | \
-  #         tee otelcol-sumo-fips-${{matrix.arch_os}}_modules.txt
+      - name: Show included modules
+        working-directory: ./otelcolbuilder/cmd
+        run: |
+          go version -m otelcol-sumo-fips-${{matrix.arch_os}} | \
+          grep -E "/(receiver|exporter|processor|extension)/" | \
+          tee otelcol-sumo-fips-${{matrix.arch_os}}_modules.txt
 
-  #     - name: Show BoringSSL symbols
-  #       working-directory: ./otelcolbuilder/cmd
-  #       run: |
-  #         go tool nm otelcol-sumo-fips-${{matrix.arch_os}} | \
-  #         grep "_Cfunc__goboringcrypto_"
+      - name: Show BoringSSL symbols
+        working-directory: ./otelcolbuilder/cmd
+        run: |
+          go tool nm otelcol-sumo-fips-${{matrix.arch_os}} | \
+          grep "_Cfunc__goboringcrypto_"
 
-  #     - name: Store binary as action artifact
-  #       uses: actions/upload-artifact@v3
-  #       with:
-  #         name: otelcol-sumo-fips-${{matrix.arch_os}}
-  #         path: ./otelcolbuilder/cmd/otelcol-sumo-fips-${{matrix.arch_os}}
-  #         if-no-files-found: error
+      - name: Store binary as action artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: otelcol-sumo-fips-${{matrix.arch_os}}
+          path: ./otelcolbuilder/cmd/otelcol-sumo-fips-${{matrix.arch_os}}
+          if-no-files-found: error
 
-  #     - name: Store list of included modules as action artifact
-  #       uses: actions/upload-artifact@v3
-  #       with:
-  #         name: otelcol-sumo-fips-${{matrix.arch_os}}_modules.txt
-  #         path: ./otelcolbuilder/cmd/otelcol-sumo-fips-${{matrix.arch_os}}_modules.txt
-  #         if-no-files-found: error
+      - name: Store list of included modules as action artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: otelcol-sumo-fips-${{matrix.arch_os}}_modules.txt
+          path: ./otelcolbuilder/cmd/otelcol-sumo-fips-${{matrix.arch_os}}_modules.txt
+          if-no-files-found: error
 
-  # build-container-images:
-  #   name: Build container
-  #   runs-on: ubuntu-20.04
-  #   needs:
-  #     - build
-  #     - build-fips
-  #   strategy:
-  #     matrix:
-  #       arch_os: [ 'linux_amd64', 'linux_arm64' ]
-  #   steps:
-  #     - uses: actions/checkout@v3
+  build-container-images:
+    name: Build container
+    runs-on: ubuntu-20.04
+    needs:
+      - build
+      - build-fips
+    strategy:
+      matrix:
+        arch_os: [ 'linux_amd64', 'linux_arm64' ]
+    steps:
+      - uses: actions/checkout@v3
 
-  #     - name: Extract tag
-  #       id: extract_tag
-  #       run: echo "::set-output name=tag::$(git rev-parse HEAD)"
+      - name: Extract tag
+        id: extract_tag
+        run: echo "::set-output name=tag::$(git rev-parse HEAD)"
 
-  #     - name: Print tag
-  #       run: echo "Running dev build for ${{ steps.extract_tag.outputs.tag }}"
+      - name: Print tag
+        run: echo "Running dev build for ${{ steps.extract_tag.outputs.tag }}"
 
-  #     - name: Set up QEMU
-  #       uses: docker/setup-qemu-action@v2.0.0
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2.0.0
 
-  #     - name: Set up Buildx
-  #       id: buildx
-  #       uses: docker/setup-buildx-action@v2.0.0
+      - name: Set up Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2.0.0
 
-  #     - name: Show Buildx platforms
-  #       run: echo ${{ steps.buildx.outputs.platforms }}
+      - name: Show Buildx platforms
+        run: echo ${{ steps.buildx.outputs.platforms }}
 
-  #     - name: Login to Open Source ECR
-  #       run: make login
-  #       env:
-  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
-  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+      - name: Login to Open Source ECR
+        run: make login
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
 
-  #     - name: Download FIPS binary action artifact from build phase
-  #       if: matrix.arch_os == 'linux_amd64'
-  #       uses: actions/download-artifact@v3
-  #       with:
-  #         name: otelcol-sumo-fips-${{matrix.arch_os}}
+      - name: Download FIPS binary action artifact from build phase
+        if: matrix.arch_os == 'linux_amd64'
+        uses: actions/download-artifact@v3
+        with:
+          name: otelcol-sumo-fips-${{matrix.arch_os}}
 
-  #     - name: Build and push FIPS image to Open Source ECR
-  #       if: matrix.arch_os == 'linux_amd64'
-  #       run: |
-  #         cp otelcol-sumo-fips-${{ matrix.arch_os }} otelcol-sumo
-  #         make build-push-container-multiplatform-dev-fips \
-  #           BUILD_TAG=${{ steps.extract_tag.outputs.tag }}-fips \
-  #           PLATFORM=${{ matrix.arch_os }} \
-  #           LATEST_TAG_FIPS_SUFFIX="-fips"
+      - name: Build and push FIPS image to Open Source ECR
+        if: matrix.arch_os == 'linux_amd64'
+        run: |
+          cp otelcol-sumo-fips-${{ matrix.arch_os }} otelcol-sumo
+          make build-push-container-multiplatform-dev-fips \
+            BUILD_TAG=${{ steps.extract_tag.outputs.tag }}-fips \
+            PLATFORM=${{ matrix.arch_os }} \
+            LATEST_TAG_FIPS_SUFFIX="-fips"
 
-  #     - name: Download binary action artifact from build phase
-  #       uses: actions/download-artifact@v3
-  #       with:
-  #         name: otelcol-sumo-${{ matrix.arch_os }}
+      - name: Download binary action artifact from build phase
+        uses: actions/download-artifact@v3
+        with:
+          name: otelcol-sumo-${{ matrix.arch_os }}
 
-  #     - name: Build and push image to Open Source ECR
-  #       run: |
-  #         cp otelcol-sumo-${{ matrix.arch_os }} otelcol-sumo
-  #         make build-push-container-multiplatform-dev \
-  #           BUILD_TAG=${{ steps.extract_tag.outputs.tag }} \
-  #           PLATFORM=${{ matrix.arch_os }}
+      - name: Build and push image to Open Source ECR
+        run: |
+          cp otelcol-sumo-${{ matrix.arch_os }} otelcol-sumo
+          make build-push-container-multiplatform-dev \
+            BUILD_TAG=${{ steps.extract_tag.outputs.tag }} \
+            PLATFORM=${{ matrix.arch_os }}
 
-  # push-docker-manifest:
-  #   name: Push joint container manifest
-  #   runs-on: ubuntu-20.04
-  #   needs:
-  #     - build-container-images
-  #   steps:
-  #     - uses: actions/checkout@v3
+  push-docker-manifest:
+    name: Push joint container manifest
+    runs-on: ubuntu-20.04
+    needs:
+      - build-container-images
+    steps:
+      - uses: actions/checkout@v3
 
-  #     - name: Extract tag
-  #       id: extract_tag
-  #       run: echo "::set-output name=tag::$(git rev-parse HEAD)"
+      - name: Extract tag
+        id: extract_tag
+        run: echo "::set-output name=tag::$(git rev-parse HEAD)"
 
-  #     - name: Print tag
-  #       run: echo "Running dev build for ${{ steps.extract_tag.outputs.tag }}"
+      - name: Print tag
+        run: echo "Running dev build for ${{ steps.extract_tag.outputs.tag }}"
 
-  #     - name: Set up QEMU
-  #       uses: docker/setup-qemu-action@v2.0.0
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2.0.0
 
-  #     - name: Set up Buildx
-  #       id: buildx
-  #       uses: docker/setup-buildx-action@v2.0.0
+      - name: Set up Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@v2.0.0
 
-  #     - name: Show Buildx platforms
-  #       run: echo ${{ steps.buildx.outputs.platforms }}
+      - name: Show Buildx platforms
+        run: echo ${{ steps.buildx.outputs.platforms }}
 
-  #     - name: Login to Open Source ECR
-  #       run: make login
-  #       env:
-  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
-  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
+      - name: Login to Open Source ECR
+        run: make login
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID_DEV }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY_DEV }}
 
-  #     - name: Push joint FIPS container manifest for all platforms to Open Source ECR
-  #       run: |
-  #         make push-container-manifest-dev \
-  #           BUILD_TAG=${{ steps.extract_tag.outputs.tag }}-fips \
-  #           PLATFORMS="linux/amd64" \
-  #           LATEST_TAG_FIPS_SUFFIX="-fips"
+      - name: Push joint FIPS container manifest for all platforms to Open Source ECR
+        run: |
+          make push-container-manifest-dev \
+            BUILD_TAG=${{ steps.extract_tag.outputs.tag }}-fips \
+            PLATFORMS="linux/amd64" \
+            LATEST_TAG_FIPS_SUFFIX="-fips"
 
-  #     - name: Push joint container manifest for all platforms to Open Source ECR
-  #       run: |
-  #         make push-container-manifest-dev \
-  #           BUILD_TAG=${{ steps.extract_tag.outputs.tag }} \
-  #           PLATFORMS="linux/amd64 linux/arm64"
+      - name: Push joint container manifest for all platforms to Open Source ECR
+        run: |
+          make push-container-manifest-dev \
+            BUILD_TAG=${{ steps.extract_tag.outputs.tag }} \
+            PLATFORMS="linux/amd64 linux/arm64"
