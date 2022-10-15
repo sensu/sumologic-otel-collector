@@ -29,7 +29,7 @@ else
 endif
 
 
-INSTALLED_BUILDER_VERSION := $(shell $(BUILDER_BIN_NAME) version 2>&1)
+INSTALLED_BUILDER_VERSION := $(shell echo $$PATH && ls -l $(BUILDER_BIN_PATH) && which $(BUILDER_BIN_NAME) && $(BUILDER_BIN_NAME) version 2>&1)
 
 LS ?= $(shell ls $(BUILDER_BIN_PATH))
 
@@ -97,6 +97,8 @@ ifneq ($(lastword $(INSTALLED_BUILDER_VERSION)),$(BUILDER_VERSION))
 		PATH = $(PATH)\
 		\
 		LS = $(shell ls -l $(BUILDER_BIN_PATH))\
+		\
+		WHICH = $(shell which opentelemetry-collector-builder)\
 	)
 else
 	@printf "Installed opentelemetry-collector-builder (%s) is at the correct version %s\n" \
