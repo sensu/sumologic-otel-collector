@@ -55,7 +55,7 @@ jobs:
     name: Build
     runs-on: ${{ matrix.runs_on }}
     env:
-      BUILDER_BIN_PATH: ${HOME}/bin
+      BUILDER_BIN_PATH: '$HOME/bin'
     strategy:
       matrix:
         include:
@@ -69,7 +69,7 @@ jobs:
           #   runs_on: macos-latest
           - arch_os: windows_amd64
             runs_on: windows-2022
-            builder_bin_path: ${env:RUNNER_TEMP}\bin
+            builder_bin_path: '${env:RUNNER_TEMP}\bin'
             builder_bin_ext: .exe
     steps:
       - uses: actions/checkout@v3
