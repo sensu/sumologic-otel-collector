@@ -6,6 +6,10 @@ on:
       - main
       - 'dev-build/*'
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
 
   # Add lint to dev builds as that's the only way for cache to be shared across branches.
@@ -74,7 +78,6 @@ jobs:
 
       - name: Fetch current branch
         run: ./ci/fetch_current_branch.sh
-        shell: bash
 
       - name: Setup go
         uses: actions/setup-go@v3
@@ -127,7 +130,6 @@ jobs:
           go version -m otelcol-sumo-${{matrix.arch_os}}${{matrix.builder_bin_ext}} | \
           grep -E "/(receiver|exporter|processor|extension)/" | \
           tee otelcol-sumo-${{matrix.arch_os}}_modules.txt
-        shell: bash
 
       # TODO:
       # Move that out to a separate job and run on a corresponding's OS runner.
