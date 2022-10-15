@@ -55,7 +55,7 @@ jobs:
     name: Build
     runs-on: ${{ matrix.runs_on }}
     env:
-      BUILDER_BIN_PATH: '${HOME}/bin'
+      BUILDER_BIN_PATH: \$HOME/bin
     strategy:
       matrix:
         include:
