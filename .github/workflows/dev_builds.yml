@@ -217,6 +217,9 @@ jobs:
           path: ./otelcolbuilder/cmd/otelcol-sumo-fips-${{matrix.arch_os}}_modules.txt
           if-no-files-found: error
 
+      - name: Debug
+        run: echo "test"
+
   build-container-images:
     name: Build container
     runs-on: ubuntu-20.04
