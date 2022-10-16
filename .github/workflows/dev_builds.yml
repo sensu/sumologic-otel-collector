@@ -93,6 +93,8 @@ jobs:
             /home/runner/.cache/go-build
             /Users/runner/go/pkg/mod
             /Users/runner/Library/Caches/go-build
+            /c/Users/runneradmin/go/pkg/mod
+            /c/Users/runneradmin/AppData/Local/go-build
           key: ${{matrix.arch_os}}-go-${{ hashFiles('**/go.sum') }}
           restore-keys: |
             ${{matrix.arch_os}}-go-
@@ -109,7 +111,7 @@ jobs:
 
       - name: Install opentelemetry-collector-builder
         run: make install-builder
-        working-directory: otelcolbuilder
+        working-directory: ./otelcolbuilder
 
       - name: Build
         run: make otelcol-sumo-${{matrix.arch_os}}
