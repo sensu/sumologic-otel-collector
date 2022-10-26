@@ -39,14 +39,14 @@ func New() confmap.Provider {
 	}
 }
 
-func (fmp *provider) Retrieve(ctx context.Context, uri string, watcher confmap.WatcherFunc) (confmap.Retrieved, error) {
+func (fmp *provider) Retrieve(ctx context.Context, uri string, watcher confmap.WatcherFunc) (*confmap.Retrieved, error) {
 	if !strings.HasPrefix(uri, schemeName+":") {
-		return confmap.Retrieved{}, fmt.Errorf("%q uri is not supported by %q provider", uri, schemeName)
+		return &confmap.Retrieved{}, fmt.Errorf("%q uri is not supported by %q provider", uri, schemeName)
 	}
 	opampEndpoint := uri[len(schemeName)+1:]
 
 	if err := fmp.opampAgent.loadState(); err != nil {
-		return confmap.Retrieved{}, err
+		return &confmap.Retrieved{}, err
 	}
 
 	state := fmp.opampAgent.stateManager.GetState()
@@ -57,7 +57,7 @@ func (fmp *provider) Retrieve(ctx context.Context, uri string, watcher confmap.W
 	}
 
 	if err := fmp.opampAgent.Start(opampEndpoint); err != nil {
-		return confmap.Retrieved{}, err
+		return &confmap.Retrieved{}, err
 	}
 
 	// If no config was previously loaded loaded, wait for the first config to be
@@ -77,7 +77,7 @@ func (fmp *provider) Retrieve(ctx context.Context, uri string, watcher confmap.W
 
 	config, err := state.EffectiveConfig.composeOtConfig()
 	if err != nil {
-		return confmap.Retrieved{}, err
+		return &confmap.Retrieved{}, err
 	}
 
 	return confmap.NewRetrieved(config)
