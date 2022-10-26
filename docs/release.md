@@ -101,8 +101,14 @@ Updating OT core involves:
 
 ### Updating patched processors
 
-We currently maintain patches for two upstream processors: `resourceprocessor` and `attributesprocessor`.
-The patches live in our [contrib fork repository][contrib_fork], on the `vX.X.X-filterprocessor` branch. See [comments][builder_config]
+We currently maintain patches for the following upstream components:
+
+- `hostmetricsreceiver`
+- `mysqlreceiver`
+- `apachereceiver`
+- `elasticsearchreceiver`
+
+The patches live in our [contrib fork repository][contrib_fork], on the `vX.X.X-patches` branch. See [comments][builder_config]
 in the builder configuration for more details.
 
 To update this patchset for the new OT core version:
@@ -112,7 +118,7 @@ To update this patchset for the new OT core version:
    ```bash
    export CURRENT_VERSION=vX.X.X
    export NEW_VERSION=vY.Y.Y
-   export SUFFIX=filterprocessor
+   export SUFFIX=patches
    git clone https://github.com/SumoLogic/opentelemetry-collector-contrib && cd opentelemetry-collector-contrib
    git remote add upstream https://github.com/open-telemetry/opentelemetry-collector-contrib
    git pull upstream "${NEW_VERSION}" "${CURRENT_VERSION}"
@@ -139,7 +145,8 @@ To update this patchset for the new OT core version:
    only run the tests for the changed modules:
 
    ```bash
-   make -C internal/coreinternal test && make -C processor/attributesprocessor test && make -C processor/filterprocessor test && make -C processor/resourceprocessor test
+   export COMPONENTS=("receiver/hostmetricsreceiver" "receiver/mysqlreceiver" "receiver/apachesreceiver" "receiver/elasticsearchsreceiver")
+   for component in $COMPONENTS do; make -C $component test; done
    ```
 
 1. Push the new branch to the fork repo and write down the commit SHA

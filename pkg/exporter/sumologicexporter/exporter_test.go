@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -176,18 +175,18 @@ func TestLogsResourceAttributesSentAsFields(t *testing.T) {
 			logsFunc: func() plog.Logs {
 				buffer := make([]plog.LogRecord, 2)
 				buffer[0] = plog.NewLogRecord()
-				buffer[0].Body().SetStringVal("Example log")
-				buffer[0].Attributes().InsertString("key1", "value1")
-				buffer[0].Attributes().InsertString("key2", "value2")
+				buffer[0].Body().SetStr("Example log")
+				buffer[0].Attributes().PutString("key1", "value1")
+				buffer[0].Attributes().PutString("key2", "value2")
 				buffer[1] = plog.NewLogRecord()
-				buffer[1].Body().SetStringVal("Another example log")
-				buffer[1].Attributes().InsertString("key1", "value1")
-				buffer[1].Attributes().InsertString("key2", "value2")
-				buffer[1].Attributes().InsertString("key3", "value3")
+				buffer[1].Body().SetStr("Another example log")
+				buffer[1].Attributes().PutString("key1", "value1")
+				buffer[1].Attributes().PutString("key2", "value2")
+				buffer[1].Attributes().PutString("key3", "value3")
 
 				logs := LogRecordsToLogs(buffer)
-				logs.ResourceLogs().At(0).Resource().Attributes().InsertString("res_attr1", "1")
-				logs.ResourceLogs().At(0).Resource().Attributes().InsertString("res_attr2", "2")
+				logs.ResourceLogs().At(0).Resource().Attributes().PutString("res_attr1", "1")
+				logs.ResourceLogs().At(0).Resource().Attributes().PutString("res_attr2", "2")
 				return logs
 			},
 		},
@@ -219,10 +218,10 @@ func TestAllFailed(t *testing.T) {
 	logs := plog.NewLogs()
 	logsSlice := logs.ResourceLogs().AppendEmpty()
 	logsRecords1 := logsSlice.ScopeLogs().AppendEmpty().LogRecords()
-	logsRecords1.AppendEmpty().Body().SetStringVal("Example log")
+	logsRecords1.AppendEmpty().Body().SetStr("Example log")
 
 	logsRecords2 := logsSlice.ScopeLogs().AppendEmpty().LogRecords()
-	logsRecords2.AppendEmpty().Body().SetStringVal("Another example log")
+	logsRecords2.AppendEmpty().Body().SetStr("Another example log")
 
 	logsExpected := plog.NewLogs()
 	logsSlice.CopyTo(logsExpected.ResourceLogs().AppendEmpty())
@@ -256,10 +255,10 @@ func TestPartiallyFailed(t *testing.T) {
 	logs := plog.NewLogs()
 	logsSlice1 := logs.ResourceLogs().AppendEmpty()
 	logsRecords1 := logsSlice1.ScopeLogs().AppendEmpty().LogRecords()
-	logsRecords1.AppendEmpty().Body().SetStringVal("Example log")
+	logsRecords1.AppendEmpty().Body().SetStr("Example log")
 	logsSlice2 := logs.ResourceLogs().AppendEmpty()
 	logsRecords2 := logsSlice2.ScopeLogs().AppendEmpty().LogRecords()
-	logsRecords2.AppendEmpty().Body().SetStringVal("Another example log")
+	logsRecords2.AppendEmpty().Body().SetStr("Another example log")
 
 	logsExpected := plog.NewLogs()
 	logsSlice2.CopyTo(logsExpected.ResourceLogs().AppendEmpty())
@@ -406,254 +405,6 @@ func TestPushOTLPLogsClearTimestamp(t *testing.T) {
 	}
 }
 
-func TestPushOTLPLogs_AttributeTranslation(t *testing.T) {
-	createLogs := func() plog.Logs {
-		logs := LogRecordsToLogs(exampleLog())
-		resourceAttrs := logs.ResourceLogs().At(0).Resource().Attributes()
-		resourceAttrs.InsertString("host.name", "harry-potter")
-		resourceAttrs.InsertString("host.type", "wizard")
-		resourceAttrs.InsertString("log.file.path_resolved", "/tmp/log.log")
-		return logs
-	}
-
-	testcases := []struct {
-		name       string
-		configFunc func() *Config
-		callbacks  []func(w http.ResponseWriter, req *http.Request)
-	}{
-		{
-			name: "enabled",
-			configFunc: func() *Config {
-				config := createTestConfig()
-				config.SourceCategory = "category_with_host_template_%{host.name}"
-				config.SourceHost = "%{host.name}"
-				config.LogFormat = OTLPLogFormat
-				config.TranslateAttributes = true
-				return config
-			},
-			callbacks: []func(w http.ResponseWriter, req *http.Request){
-				func(w http.ResponseWriter, req *http.Request) {
-					body := extractBody(t, req)
-
-					//nolint:lll
-					assert.Equal(t, "\n\xcb\x01\n\xaf\x01\n\x16\n\x04host\x12\x0e\n\fharry-potter\n\x18\n\fInstanceType\x12\b\n\x06wizard\n\x1d\n\v_sourceName\x12\x0e\n\f/tmp/log.log\n\x1d\n\v_sourceHost\x12\x0e\n\fharry-potter\n=\n\x0f_sourceCategory\x12*\n(category_with_host_template_harry-potter\x12\x17\n\x00\x12\x13*\r\n\vExample logJ\x00R\x00", body)
-
-					assert.Empty(t, req.Header.Get("X-Sumo-Fields"),
-						"We should not get X-Sumo-Fields header when sending data with OTLP",
-					)
-					assert.Empty(t, req.Header.Get("X-Sumo-Category"),
-						"We should not get X-Sumo-Category header when sending data with OTLP",
-					)
-					assert.Empty(t, req.Header.Get("X-Sumo-Name"),
-						"We should not get X-Sumo-Name header when sending data with OTLP",
-					)
-					assert.Empty(t, req.Header.Get("X-Sumo-Host"),
-						"We should not get X-Sumo-Host header when sending data with OTLP",
-					)
-				},
-			},
-		},
-		{
-			name: "disabled",
-			configFunc: func() *Config {
-				config := createTestConfig()
-				config.SourceCategory = "category_with_host_template_%{host.name}"
-				config.SourceHost = "%{host.name}"
-				config.LogFormat = OTLPLogFormat
-				config.TranslateAttributes = false
-				return config
-			},
-			callbacks: []func(w http.ResponseWriter, req *http.Request){
-				func(w http.ResponseWriter, req *http.Request) {
-					body := extractBody(t, req)
-
-					//nolint:lll
-					assert.Equal(t, "\n\xd8\x01\n\xbc\x01\n\x1b\n\thost.name\x12\x0e\n\fharry-potter\n\x15\n\thost.type\x12\b\n\x06wizard\n(\n\x16log.file.path_resolved\x12\x0e\n\f/tmp/log.log\n\x1d\n\v_sourceHost\x12\x0e\n\fharry-potter\n=\n\x0f_sourceCategory\x12*\n(category_with_host_template_harry-potter\x12\x17\n\x00\x12\x13*\r\n\vExample logJ\x00R\x00", body)
-
-					assert.Empty(t, req.Header.Get("X-Sumo-Fields"),
-						"We should not get X-Sumo-Fields header when sending data with OTLP",
-					)
-					assert.Empty(t, req.Header.Get("X-Sumo-Category"),
-						"We should not get X-Sumo-Category header when sending data with OTLP",
-					)
-					assert.Empty(t, req.Header.Get("X-Sumo-Name"),
-						"We should not get X-Sumo-Name header when sending data with OTLP",
-					)
-					assert.Empty(t, req.Header.Get("X-Sumo-Host"),
-						"We should not get X-Sumo-Host header when sending data with OTLP",
-					)
-				},
-			},
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			tc := tc
-
-			test := prepareExporterTest(t, tc.configFunc(), tc.callbacks)
-
-			err := test.exp.pushLogsData(context.Background(), createLogs())
-			assert.NoError(t, err)
-		})
-	}
-}
-
-func TestPushTextLogs_AttributeTranslation(t *testing.T) {
-	createLogs := func() plog.Logs {
-		logs := LogRecordsToLogs(exampleLog())
-		resourceAttrs := logs.ResourceLogs().At(0).Resource().Attributes()
-		resourceAttrs.InsertString("host.name", "harry-potter")
-		resourceAttrs.InsertString("host.type", "wizard")
-		return logs
-	}
-
-	testcases := []struct {
-		name       string
-		configFunc func() *Config
-		callbacks  []func(w http.ResponseWriter, req *http.Request)
-	}{
-		{
-			name: "enabled",
-			configFunc: func() *Config {
-				config := createTestConfig()
-				config.SourceCategory = "%{host.name}"
-				config.SourceHost = "%{host}"
-				config.LogFormat = TextFormat
-				config.TranslateAttributes = true
-				return config
-			},
-			callbacks: []func(w http.ResponseWriter, req *http.Request){
-				func(w http.ResponseWriter, req *http.Request) {
-					body := extractBody(t, req)
-					assert.Equal(t, `Example log`, body)
-					assert.Equal(t, "InstanceType=wizard, host=harry-potter", req.Header.Get("X-Sumo-Fields"), "X-Sumo-Fields")
-					assert.Equal(t, "harry-potter", req.Header.Get("X-Sumo-Category"), "X-Sumo-Category")
-
-					// This gets the value from 'host.name' because we do not disallow
-					// using Sumo schema and 'host.name' from OT convention
-					// translates into 'host' in Sumo convention
-					assert.Equal(t, "harry-potter", req.Header.Get("X-Sumo-Host"), "X-Sumo-Host")
-				},
-			},
-		},
-		{
-			name: "disabled",
-			configFunc: func() *Config {
-				config := createTestConfig()
-				config.SourceCategory = "%{host.name}"
-				config.SourceHost = "%{host}"
-				config.LogFormat = TextFormat
-				config.TranslateAttributes = false
-				return config
-			},
-			callbacks: []func(w http.ResponseWriter, req *http.Request){
-				func(w http.ResponseWriter, req *http.Request) {
-					body := extractBody(t, req)
-					assert.Equal(t, `Example log`, body)
-					assert.Equal(t, "host.name=harry-potter, host.type=wizard", req.Header.Get("X-Sumo-Fields"), "X-Sumo-Fields")
-					assert.Equal(t, "harry-potter", req.Header.Get("X-Sumo-Category"), "X-Sumo-Category")
-					assert.Equal(t, "undefined", req.Header.Get("X-Sumo-Host"), "X-Sumo-Host")
-				},
-			},
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			tc := tc
-
-			test := prepareExporterTest(t, tc.configFunc(), tc.callbacks)
-
-			err := test.exp.pushLogsData(context.Background(), createLogs())
-			assert.NoError(t, err)
-		})
-	}
-}
-
-func TestPushJSONLogs_AttributeTranslation(t *testing.T) {
-	createLogs := func() plog.Logs {
-		logs := LogRecordsToLogs(exampleLog())
-		resourceAttrs := logs.ResourceLogs().At(0).Resource().Attributes()
-		resourceAttrs.InsertString("host.name", "harry-potter")
-		resourceAttrs.InsertString("host.type", "wizard")
-		return logs
-	}
-
-	testcases := []struct {
-		name       string
-		logs       plog.Logs
-		configFunc func() *Config
-		callbacks  []func(w http.ResponseWriter, req *http.Request)
-	}{
-		{
-			name: "enabled",
-			logs: createLogs(),
-			configFunc: func() *Config {
-				config := createTestConfig()
-				config.SourceCategory = "%{host.name}"
-				config.SourceHost = "%{host}"
-				config.LogFormat = JSONFormat
-				config.TranslateAttributes = true
-				return config
-			},
-			callbacks: []func(w http.ResponseWriter, req *http.Request){
-				func(w http.ResponseWriter, req *http.Request) {
-					body := extractBody(t, req)
-
-					var regex string
-					// Mind that host attribute is not being send in log body
-					regex += `{"log":"Example log","timestamp":\d{13}}`
-					assert.Regexp(t, regex, body)
-
-					assert.Equal(t, "InstanceType=wizard, host=harry-potter", req.Header.Get("X-Sumo-Fields"), "X-Sumo-Fields")
-					assert.Equal(t, "harry-potter", req.Header.Get("X-Sumo-Category"), "X-Sumo-Category")
-
-					// This gets the value from 'host.name' because we do not disallow
-					// using Sumo schema and 'host.name' from OT convention
-					// translates into 'host' in Sumo convention
-					assert.Equal(t, "harry-potter", req.Header.Get("X-Sumo-Host"), "X-Sumo-Host")
-				},
-			},
-		},
-		{
-			name: "disabled",
-			logs: createLogs(),
-			configFunc: func() *Config {
-				config := createTestConfig()
-				config.SourceCategory = "%{host.name}"
-				config.SourceHost = "%{host}"
-				config.LogFormat = JSONFormat
-				config.TranslateAttributes = false
-				return config
-			},
-			callbacks: []func(w http.ResponseWriter, req *http.Request){
-				func(w http.ResponseWriter, req *http.Request) {
-					body := extractBody(t, req)
-					var regex string
-					regex += `{"log":"Example log","timestamp":\d{13}}`
-					assert.Regexp(t, regex, body)
-
-					assert.Equal(t, "host.name=harry-potter, host.type=wizard", req.Header.Get("X-Sumo-Fields"), "X-Sumo-Fields")
-					assert.Equal(t, "harry-potter", req.Header.Get("X-Sumo-Category"), "X-Sumo-Category")
-					assert.Equal(t, "undefined", req.Header.Get("X-Sumo-Host"), "X-Sumo-Host")
-				},
-			},
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			tc := tc
-
-			test := prepareExporterTest(t, tc.configFunc(), tc.callbacks)
-
-			err := test.exp.pushLogsData(context.Background(), tc.logs)
-			assert.NoError(t, err)
-		})
-	}
-}
-
 func TestPushLogs_DontRemoveSourceAttributes(t *testing.T) {
 	createLogs := func() plog.Logs {
 		logs := plog.NewLogs()
@@ -662,18 +413,18 @@ func TestPushLogs_DontRemoveSourceAttributes(t *testing.T) {
 
 		logRecords := make([]plog.LogRecord, 2)
 		logRecords[0] = plog.NewLogRecord()
-		logRecords[0].Body().SetStringVal("Example log aaaaaaaaaaaaaaaaaaaaaa 1")
+		logRecords[0].Body().SetStr("Example log aaaaaaaaaaaaaaaaaaaaaa 1")
 		logRecords[0].CopyTo(logsSlice.AppendEmpty())
 		logRecords[1] = plog.NewLogRecord()
-		logRecords[1].Body().SetStringVal("Example log aaaaaaaaaaaaaaaaaaaaaa 2")
+		logRecords[1].Body().SetStr("Example log aaaaaaaaaaaaaaaaaaaaaa 2")
 		logRecords[1].CopyTo(logsSlice.AppendEmpty())
 
 		resourceAttrs := resourceLogs.Resource().Attributes()
-		resourceAttrs.InsertString("hostname", "my-host-name")
-		resourceAttrs.InsertString("hosttype", "my-host-type")
-		resourceAttrs.InsertString("_sourceCategory", "my-source-category")
-		resourceAttrs.InsertString("_sourceHost", "my-source-host")
-		resourceAttrs.InsertString("_sourceName", "my-source-name")
+		resourceAttrs.PutString("hostname", "my-host-name")
+		resourceAttrs.PutString("hosttype", "my-host-type")
+		resourceAttrs.PutString("_sourceCategory", "my-source-category")
+		resourceAttrs.PutString("_sourceHost", "my-source-host")
+		resourceAttrs.PutString("_sourceName", "my-source-name")
 
 		return logs
 	}
@@ -708,7 +459,6 @@ func TestPushLogs_DontRemoveSourceAttributes(t *testing.T) {
 	config.SourceName = "%{_sourceName}"
 	config.SourceHost = "%{_sourceHost}"
 	config.LogFormat = TextFormat
-	config.TranslateAttributes = false
 	config.MaxRequestBodySize = 32
 
 	test := prepareExporterTest(t, config, callbacks)
@@ -881,165 +631,6 @@ func TestPushMetricsInvalidCompressor(t *testing.T) {
 	assert.EqualError(t, err, "failed to initialize compressor: invalid format: invalid")
 }
 
-func TestLogsJsonFormatMetadataFilter(t *testing.T) {
-	testcases := []struct {
-		name                  string
-		logResourceAttributes map[string]interface{}
-		cfgFn                 func(c *Config)
-		handler               func(w http.ResponseWriter, req *http.Request)
-	}{
-		{
-			name: "basic",
-			logResourceAttributes: map[string]interface{}{
-				"_sourceCategory": "dummy",
-				"key1":            "value1",
-				"key2":            "value2",
-			},
-			cfgFn: func(c *Config) {
-				c.LogFormat = JSONFormat
-				c.SourceCategory = "testing_source_templates %{_sourceCategory}"
-			},
-			handler: func(w http.ResponseWriter, req *http.Request) {
-				body := extractBody(t, req)
-				regex := `{"log":"Example log","timestamp":\d{13}}`
-				assert.Regexp(t, regex, body)
-
-				assert.Equal(t, "key1=value1, key2=value2", req.Header.Get("X-Sumo-Fields"),
-					"X-Sumo-Fields is not as expected",
-				)
-
-				assert.Equal(t, "testing_source_templates dummy",
-					req.Header.Get("X-Sumo-Category"),
-					"X-Sumo-Category header is not set correctly",
-				)
-			},
-		},
-		{
-			name: "source related attributes available for templating even without specifying in metadata attributes",
-			logResourceAttributes: map[string]interface{}{
-				"_sourceCategory": "dummy_category",
-				"_sourceHost":     "dummy_host",
-				"_sourceName":     "dummy_name",
-				"key1":            "value1",
-				"key2":            "value2",
-			},
-			cfgFn: func(c *Config) {
-				c.LogFormat = JSONFormat
-				c.SourceCategory = "testing_source_templates %{_sourceCategory}"
-				c.SourceHost = "testing_source_templates %{_sourceHost}"
-				c.SourceName = "testing_source_templates %{_sourceName}"
-			},
-			handler: func(w http.ResponseWriter, req *http.Request) {
-				body := extractBody(t, req)
-				regex := `{"log":"Example log","timestamp":\d{13}}`
-				assert.Regexp(t, regex, body)
-
-				assert.Equal(t, "key1=value1, key2=value2", req.Header.Get("X-Sumo-Fields"),
-					"X-Sumo-Fields is not as expected",
-				)
-
-				assert.Equal(t, "testing_source_templates dummy_category",
-					req.Header.Get("X-Sumo-Category"),
-					"X-Sumo-Category header is not set correctly",
-				)
-
-				assert.Equal(t, "testing_source_templates dummy_host",
-					req.Header.Get("X-Sumo-Host"),
-					"X-Sumo-Host header is not set correctly",
-				)
-
-				assert.Equal(t, "testing_source_templates dummy_name",
-					req.Header.Get("X-Sumo-Name"),
-					"X-Sumo-Name header is not set correctly",
-				)
-			},
-		},
-		{
-			name: "unavailable source metadata rendered as undefined",
-			logResourceAttributes: map[string]interface{}{
-				"_sourceCategory": "cat",
-				"key1":            "value1",
-				"key2":            "value2",
-			},
-			cfgFn: func(c *Config) {
-				c.LogFormat = JSONFormat
-				c.SourceCategory = "dummy %{_sourceCategory}"
-				c.SourceHost = "dummy %{_sourceHost}"
-				c.SourceName = "dummy %{_sourceName}"
-			},
-			handler: func(w http.ResponseWriter, req *http.Request) {
-				body := extractBody(t, req)
-				regex := `{"log":"Example log","timestamp":\d{13}}`
-				assert.Regexp(t, regex, body)
-
-				assert.Equal(t, "key1=value1, key2=value2", req.Header.Get("X-Sumo-Fields"),
-					"X-Sumo-Fields is not as expected",
-				)
-
-				assert.Equal(t, "dummy cat",
-					req.Header.Get("X-Sumo-Category"),
-					"X-Sumo-Category header is not set correctly",
-				)
-
-				assert.Equal(t, "dummy undefined",
-					req.Header.Get("X-Sumo-Host"),
-					"X-Sumo-Host header is not set correctly",
-				)
-
-				assert.Equal(t, "dummy undefined",
-					req.Header.Get("X-Sumo-Name"),
-					"X-Sumo-Name header is not set correctly",
-				)
-			},
-		},
-		{
-			name: "empty attribute",
-			logResourceAttributes: map[string]interface{}{
-				"_sourceCategory": "dummy",
-				"key1":            "value1",
-				"key2":            "value2",
-				"key3":            "",
-			},
-			cfgFn: func(c *Config) {
-				c.LogFormat = JSONFormat
-				c.SourceCategory = "testing_source_templates %{_sourceCategory}"
-			},
-			handler: func(w http.ResponseWriter, req *http.Request) {
-				body := extractBody(t, req)
-
-				var regex string
-				regex += `{"log":"Example log","timestamp":\d{13}}`
-				assert.Regexp(t, regex, body)
-
-				assert.Equal(t, "key1=value1, key2=value2", req.Header.Get("X-Sumo-Fields"),
-					"X-Sumo-Fields is not as expected",
-				)
-
-				assert.Equal(t, "testing_source_templates dummy",
-					req.Header.Get("X-Sumo-Category"),
-					"X-Sumo-Category header is not set correctly",
-				)
-			},
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			test := prepareExporterTest(t, createTestConfig(),
-				[]func(http.ResponseWriter, *http.Request){tc.handler},
-				tc.cfgFn,
-			)
-
-			logs := LogRecordsToLogs(exampleLog())
-			logResourceAttrs := logs.ResourceLogs().At(0).Resource().Attributes()
-			pcommon.NewMapFromRaw(tc.logResourceAttributes).CopyTo(logResourceAttrs)
-
-			err := test.exp.pushLogsData(context.Background(), logs)
-			assert.NoError(t, err)
-		})
-	}
-}
-
 func TestLogsTextFormatMetadataFilterWithDroppedAttribute(t *testing.T) {
 	test := prepareExporterTest(t, createTestConfig(), []func(w http.ResponseWriter, req *http.Request){
 		func(w http.ResponseWriter, req *http.Request) {
@@ -1052,8 +643,8 @@ func TestLogsTextFormatMetadataFilterWithDroppedAttribute(t *testing.T) {
 	test.exp.config.DropRoutingAttribute = "key1"
 
 	logs := LogRecordsToLogs(exampleLog())
-	logs.ResourceLogs().At(0).Resource().Attributes().InsertString("key1", "value1")
-	logs.ResourceLogs().At(0).Resource().Attributes().InsertString("key2", "value2")
+	logs.ResourceLogs().At(0).Resource().Attributes().PutString("key1", "value1")
+	logs.ResourceLogs().At(0).Resource().Attributes().PutString("key2", "value2")
 
 	err := test.exp.pushLogsData(context.Background(), logs)
 	assert.NoError(t, err)
@@ -1073,8 +664,8 @@ func TestMetricsPrometheusFormatMetadataFilter(t *testing.T) {
 	metrics := metricAndAttributesToPdataMetrics(exampleIntMetric())
 
 	attrs := metrics.ResourceMetrics().At(0).Resource().Attributes()
-	attrs.InsertString("key1", "value1")
-	attrs.InsertString("key2", "value2")
+	attrs.PutString("key1", "value1")
+	attrs.PutString("key2", "value2")
 
 	err := test.exp.pushMetricsData(context.Background(), metrics)
 	assert.NoError(t, err)
@@ -1095,421 +686,18 @@ func TestMetricsPrometheusWithDroppedRoutingAttribute(t *testing.T) {
 	metrics := metricAndAttributesToPdataMetrics(exampleIntMetric())
 
 	attrs := metrics.ResourceMetrics().At(0).Resource().Attributes()
-	attrs.InsertString("key1", "value1")
-	attrs.InsertString("key2", "value2")
-	attrs.InsertString("http_listener_v2_path_custom", "prometheus.metrics")
+	attrs.PutString("key1", "value1")
+	attrs.PutString("key2", "value2")
+	attrs.PutString("http_listener_v2_path_custom", "prometheus.metrics")
 
 	err := test.exp.pushMetricsData(context.Background(), metrics)
 	assert.NoError(t, err)
 }
 
-func TestPushPrometheusMetrics_AttributeTranslation(t *testing.T) {
-	createConfig := func() *Config {
-		config := createDefaultConfig().(*Config)
-		config.CompressEncoding = NoCompression
-		config.LogFormat = TextFormat
-		config.MetricFormat = PrometheusFormat
-		return config
-	}
-
-	testcases := []struct {
-		name            string
-		cfgFn           func() *Config
-		expectedHeaders map[string]string
-		expectedBody    string
-	}{
-		{
-			name: "enabled",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				cfg.SourceCategory = "%{host.name}"
-				cfg.SourceHost = "%{host}"
-				// This is and should be done by default:
-				// cfg.TranslateAttributes = true
-				return cfg
-			},
-			expectedHeaders: map[string]string{
-				"Content-Type":    "application/vnd.sumologic.prometheus",
-				"X-Sumo-Category": "harry-potter",
-
-				// This gets the value from 'host.name' because we do not disallow
-				// using Sumo schema and 'host.name' from OT convention
-				// translates into 'host' in Sumo convention
-				"X-Sumo-Host": "harry-potter",
-			},
-			expectedBody: `test.metric.data{test="test_value",test2="second_value",host="harry-potter",InstanceType="wizard"} 14500 1605534165000`,
-		},
-		{
-			name: "enabled_with_ot_host_name_template_set_in_source_host",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				cfg.SourceCategory = "%{host.name}"
-				cfg.SourceHost = "%{host.name}"
-				// This is and should be done by default:
-				// cfg.TranslateAttributes = true
-				return cfg
-			},
-			expectedHeaders: map[string]string{
-				"Content-Type":    "application/vnd.sumologic.prometheus",
-				"X-Sumo-Category": "harry-potter",
-				"X-Sumo-Host":     "harry-potter",
-			},
-			expectedBody: `test.metric.data{test="test_value",test2="second_value",host="harry-potter",InstanceType="wizard"} 14500 1605534165000`,
-		},
-		{
-			name: "disabled",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				cfg.SourceCategory = "%{host.name}"
-				cfg.SourceHost = "%{host}"
-				cfg.TranslateAttributes = false
-				return cfg
-			},
-			expectedHeaders: map[string]string{
-				"Content-Type":    "application/vnd.sumologic.prometheus",
-				"X-Sumo-Category": "harry-potter",
-				"X-Sumo-Host":     "undefined",
-			},
-			expectedBody: `test.metric.data{test="test_value",test2="second_value",host.name="harry-potter",host.type="wizard"} 14500 1605534165000`,
-		},
-		{
-			name: "disabled_with_ot_host_name_template_set_in_source_host",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				cfg.SourceCategory = "%{host.name}"
-				cfg.SourceHost = "%{host.name}"
-				cfg.TranslateAttributes = false
-				return cfg
-			},
-			expectedHeaders: map[string]string{
-				"Content-Type":    "application/vnd.sumologic.prometheus",
-				"X-Sumo-Category": "harry-potter",
-				"X-Sumo-Host":     "harry-potter",
-			},
-			expectedBody: `test.metric.data{test="test_value",test2="second_value",host.name="harry-potter",host.type="wizard"} 14500 1605534165000`,
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			metricSum, attrsSum := exampleIntMetric()
-			attrsSum.InsertString("host.name", "harry-potter")
-			attrsSum.InsertString("host.type", "wizard")
-
-			metrics := metricPairToMetrics(
-				metricPair{
-					attributes: attrsSum,
-					metric:     metricSum,
-				},
-			)
-
-			config := tc.cfgFn()
-			callbacks := []func(w http.ResponseWriter, req *http.Request){
-				func(w http.ResponseWriter, req *http.Request) {
-					assert.Equal(t, tc.expectedBody, extractBody(t, req))
-					for header, expectedValue := range tc.expectedHeaders {
-						assert.Equalf(t, expectedValue, req.Header.Get(header),
-							"Unexpected value in header: %s", header,
-						)
-					}
-				},
-			}
-			test := prepareExporterTest(t, config, callbacks)
-
-			err := test.exp.pushMetricsData(context.Background(), metrics)
-			assert.NoError(t, err)
-		})
-	}
-}
-
-func TestPushOTLPMetrics_AttributeTranslation(t *testing.T) {
-	createConfig := func() *Config {
-		config := createDefaultConfig().(*Config)
-		config.CompressEncoding = NoCompression
-		config.MetricFormat = OTLPMetricFormat
-		return config
-	}
-
-	testcases := []struct {
-		name         string
-		cfgFn        func() *Config
-		expectedBody string
-	}{
-		{
-			name: "enabled",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				cfg.SourceCategory = "source_category_with_hostname_%{host.name}"
-				cfg.SourceHost = "%{host}"
-				// This is and should be done by default:
-				// cfg.TranslateAttributes = true
-				return cfg
-			},
-			//nolint:lll
-			expectedBody: "\n\xf9\x01\n\xc1\x01\n\x14\n\x04test\x12\f\n\ntest_value\n\x17\n\x05test2\x12\x0e\n\fsecond_value\n\x16\n\x04host\x12\x0e\n\fharry-potter\n\x18\n\fInstanceType\x12\b\n\x06wizard\n\x1d\n\v_sourceHost\x12\x0e\n\fharry-potter\n?\n\x0f_sourceCategory\x12,\n*source_category_with_hostname_harry-potter\x123\n\x00\x12/\n\x10test.metric.data\x1a\x05bytes:\x14\n\x12\x19\x00\x12\x94\v\xd1\x00H\x161\xa48\x00\x00\x00\x00\x00\x00",
-		},
-		{
-			name: "disabled",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				cfg.SourceCategory = "source_category_with_hostname_%{host.name}"
-				cfg.SourceHost = "%{host.name}"
-				cfg.TranslateAttributes = false
-				return cfg
-			},
-			//nolint:lll
-			expectedBody: "\n\xfb\x01\n\xc3\x01\n\x14\n\x04test\x12\f\n\ntest_value\n\x17\n\x05test2\x12\x0e\n\fsecond_value\n\x1b\n\thost.name\x12\x0e\n\fharry-potter\n\x15\n\thost.type\x12\b\n\x06wizard\n\x1d\n\v_sourceHost\x12\x0e\n\fharry-potter\n?\n\x0f_sourceCategory\x12,\n*source_category_with_hostname_harry-potter\x123\n\x00\x12/\n\x10test.metric.data\x1a\x05bytes:\x14\n\x12\x19\x00\x12\x94\v\xd1\x00H\x161\xa48\x00\x00\x00\x00\x00\x00",
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			metricSum, attrsSum := exampleIntMetric()
-			attrsSum.InsertString("host.name", "harry-potter")
-			attrsSum.InsertString("host.type", "wizard")
-
-			metrics := metricPairToMetrics(
-				metricPair{
-					attributes: attrsSum,
-					metric:     metricSum,
-				},
-			)
-
-			config := tc.cfgFn()
-			callbacks := []func(w http.ResponseWriter, req *http.Request){
-				func(w http.ResponseWriter, req *http.Request) {
-					assert.Equal(t, tc.expectedBody, extractBody(t, req))
-
-					assert.Equal(t, "application/x-protobuf", req.Header.Get("Content-Type"))
-
-					assert.Empty(t, req.Header.Get("X-Sumo-Fields"),
-						"We should not get X-Sumo-Fields header when sending data with OTLP",
-					)
-					assert.Empty(t, req.Header.Get("X-Sumo-Category"),
-						"We should not get X-Sumo-Category header when sending data with OTLP",
-					)
-					assert.Empty(t, req.Header.Get("X-Sumo-Name"),
-						"We should not get X-Sumo-Name header when sending data with OTLP",
-					)
-					assert.Empty(t, req.Header.Get("X-Sumo-Host"),
-						"We should not get X-Sumo-Host header when sending data with OTLP",
-					)
-				},
-			}
-			test := prepareExporterTest(t, config, callbacks)
-
-			err := test.exp.pushMetricsData(context.Background(), metrics)
-			assert.NoError(t, err)
-		})
-	}
-}
-
-func TestPushMetrics_MetricsTranslation(t *testing.T) {
-	createConfig := func() *Config {
-		config := createDefaultConfig().(*Config)
-		config.CompressEncoding = NoCompression
-		config.MetricFormat = PrometheusFormat
-		return config
-	}
-
-	testcases := []struct {
-		name              string
-		cfgFn             func() *Config
-		metricsFn         func() pmetric.Metrics
-		expectedBody      string
-		expectedBodyRegex *regexp.Regexp
-	}{
-		{
-			name: "enabled by default translated metrics successfully",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				// This is and should be done by default:
-				// cfg.TranslateTelegrafMetrics = true
-				return cfg
-			},
-			metricsFn: func() pmetric.Metrics {
-				metrics := pmetric.NewMetrics()
-				{
-					m := metrics.ResourceMetrics().AppendEmpty().
-						ScopeMetrics().AppendEmpty().
-						Metrics().AppendEmpty()
-					m.SetName("cpu_usage_active")
-					m.SetDataType(pmetric.MetricDataTypeGauge)
-					dp := m.Gauge().DataPoints().AppendEmpty()
-					dp.SetDoubleVal(123.456)
-					dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Unix(1605534165, 0)))
-					dp.Attributes().InsertString("test", "test_value")
-				}
-				return metrics
-			},
-			expectedBody: `CPU_Total{test="test_value"} 123.456 1605534165000`,
-		},
-		{
-			name: "translates metrics with OTLP format",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				cfg.MetricFormat = OTLPMetricFormat
-				// This is and should be done by default:
-				// cfg.TranslateTelegrafMetrics = true
-				return cfg
-			},
-			metricsFn: func() pmetric.Metrics {
-				metrics := pmetric.NewMetrics()
-				{
-					m := metrics.ResourceMetrics().AppendEmpty().
-						ScopeMetrics().AppendEmpty().
-						Metrics().AppendEmpty()
-					m.SetName("cpu_usage_active")
-					m.SetDataType(pmetric.MetricDataTypeGauge)
-					dp := m.Gauge().DataPoints().AppendEmpty()
-					dp.SetDoubleVal(123.456)
-					dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Unix(1605534165, 0)))
-					dp.Attributes().InsertString("test", "test_value")
-				}
-				return metrics
-			},
-			expectedBodyRegex: regexp.MustCompile(`CPU_Total`),
-		},
-		{
-			name: "enabled 3 metrics with 1 not to be translated",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				// This is and should be done by default:
-				// cfg.TranslateTelegrafMetrics = true
-				return cfg
-			},
-			metricsFn: func() pmetric.Metrics {
-				metrics := pmetric.NewMetrics()
-				scopeMetrics := metrics.ResourceMetrics().AppendEmpty().ScopeMetrics()
-				{
-					m := scopeMetrics.AppendEmpty().Metrics().AppendEmpty()
-					m.SetName("cpu_usage_active")
-					m.SetDataType(pmetric.MetricDataTypeGauge)
-					dp := m.Gauge().DataPoints().AppendEmpty()
-					dp.SetDoubleVal(123.456)
-					dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Unix(1605534165, 0)))
-					dp.Attributes().InsertString("test", "test_value")
-				}
-				{
-					m := scopeMetrics.AppendEmpty().Metrics().AppendEmpty()
-					m.SetName("diskio_reads")
-					m.SetDataType(pmetric.MetricDataTypeGauge)
-					dp := m.Gauge().DataPoints().AppendEmpty()
-					dp.SetIntVal(123456)
-					dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Unix(1605534165, 1000000)))
-					dp.Attributes().InsertString("test", "test_value")
-				}
-				{
-					m := scopeMetrics.AppendEmpty().Metrics().AppendEmpty()
-					m.SetName("dummy_metric")
-					m.SetDataType(pmetric.MetricDataTypeGauge)
-					dp := m.Gauge().DataPoints().AppendEmpty()
-					dp.SetIntVal(10)
-					dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Unix(1605534165, 2000000)))
-					dp.Attributes().InsertString("test", "test_value")
-				}
-				return metrics
-			},
-			expectedBody: `CPU_Total{test="test_value"} 123.456 1605534165000
-Disk_Reads{test="test_value"} 123456 1605534165001
-dummy_metric{test="test_value"} 10 1605534165002`,
-		},
-		{
-			name: "disabled does not translate metric names",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				cfg.TranslateTelegrafMetrics = false
-				return cfg
-			},
-			metricsFn: func() pmetric.Metrics {
-				metrics := pmetric.NewMetrics()
-				{
-					m := metrics.ResourceMetrics().AppendEmpty().
-						ScopeMetrics().AppendEmpty().
-						Metrics().AppendEmpty()
-					m.SetName("cpu_usage_active")
-					m.SetDataType(pmetric.MetricDataTypeGauge)
-					dp := m.Gauge().DataPoints().AppendEmpty()
-					dp.SetDoubleVal(123.456)
-					dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Unix(1605534165, 0)))
-					dp.Attributes().InsertString("test", "test_value")
-				}
-				return metrics
-			},
-			expectedBody: `cpu_usage_active{test="test_value"} 123.456 1605534165000`,
-		},
-		{
-			name: "disabled does not translate metric names - 3 metrics",
-			cfgFn: func() *Config {
-				cfg := createConfig()
-				cfg.TranslateTelegrafMetrics = false
-				return cfg
-			},
-			metricsFn: func() pmetric.Metrics {
-				metrics := pmetric.NewMetrics()
-				scopeMetrics := metrics.ResourceMetrics().AppendEmpty().ScopeMetrics()
-				{
-					m := scopeMetrics.AppendEmpty().Metrics().AppendEmpty()
-					m.SetName("cpu_usage_active")
-					m.SetDataType(pmetric.MetricDataTypeGauge)
-					dp := m.Gauge().DataPoints().AppendEmpty()
-					dp.SetDoubleVal(123.456)
-					dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Unix(1605534165, 0)))
-					dp.Attributes().InsertString("test", "test_value")
-				}
-				{
-					m := scopeMetrics.AppendEmpty().Metrics().AppendEmpty()
-					m.SetName("diskio_reads")
-					m.SetDataType(pmetric.MetricDataTypeGauge)
-					dp := m.Gauge().DataPoints().AppendEmpty()
-					dp.SetIntVal(123456)
-					dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Unix(1605534165, 1000000)))
-					dp.Attributes().InsertString("test", "test_value")
-				}
-				{
-					m := scopeMetrics.AppendEmpty().Metrics().AppendEmpty()
-					m.SetName("dummy_metric")
-					m.SetDataType(pmetric.MetricDataTypeGauge)
-					dp := m.Gauge().DataPoints().AppendEmpty()
-					dp.SetIntVal(10)
-					dp.SetTimestamp(pcommon.NewTimestampFromTime(time.Unix(1605534165, 2000000)))
-					dp.Attributes().InsertString("test", "test_value")
-				}
-				return metrics
-			},
-			expectedBody: `cpu_usage_active{test="test_value"} 123.456 1605534165000
-diskio_reads{test="test_value"} 123456 1605534165001
-dummy_metric{test="test_value"} 10 1605534165002`,
-		},
-	}
-
-	for _, tc := range testcases {
-		t.Run(tc.name, func(t *testing.T) {
-			metrics := tc.metricsFn()
-			config := tc.cfgFn()
-
-			callbacks := []func(w http.ResponseWriter, req *http.Request){
-				func(w http.ResponseWriter, req *http.Request) {
-					actualBody := extractBody(t, req)
-					if tc.expectedBody != "" {
-						assert.Equal(t, tc.expectedBody, actualBody)
-					} else {
-						assert.Regexp(t, tc.expectedBodyRegex, actualBody)
-					}
-				},
-			}
-			test := prepareExporterTest(t, config, callbacks)
-
-			err := test.exp.pushMetricsData(context.Background(), metrics)
-			assert.NoError(t, err)
-		})
-	}
-}
-
 func TestTracesWithDroppedAttribute(t *testing.T) {
 	// Prepare data to compare (trace without routing attribute)
 	traces := exampleTrace()
-	traces.ResourceSpans().At(0).Resource().Attributes().InsertString("key2", "value2")
+	traces.ResourceSpans().At(0).Resource().Attributes().PutString("key2", "value2")
 	tracesMarshaler = otlp.NewProtobufTracesMarshaler()
 	bytes, err := tracesMarshaler.MarshalTraces(traces)
 	require.NoError(t, err)
@@ -1523,7 +711,7 @@ func TestTracesWithDroppedAttribute(t *testing.T) {
 	test.exp.config.DropRoutingAttribute = "key1"
 
 	// add routing attribute and check if after marshalling it's different
-	traces.ResourceSpans().At(0).Resource().Attributes().InsertString("key1", "value1")
+	traces.ResourceSpans().At(0).Resource().Attributes().PutString("key1", "value1")
 	bytesWithAttribute, err := tracesMarshaler.MarshalTraces(traces)
 	require.NoError(t, err)
 	require.NotEqual(t, bytes, bytesWithAttribute)

@@ -7,18 +7,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+This release introduces the following breaking changes:
+
+- `filelog` receiver: has been removed from sub-parsers ([upgrade guide][upgrade_guide_unreleased]) [#769]
+- `sending_queue`: require explicit storage set ([upgrade guide][upgrade_guide_unreleased]) [#769]
+
 ### Added
 
 - feat: add glob config provider [#713]
-- feat(build): enable glob config provider [#713]
+- feat(build): validate FIPS mode at build time and runtime [#693]
+
+### Changed
+
+- feat(build): use patched versions of four upstream receivers [#767]
+- fix(sumologicexporter): do not crash if server returns unknown length response [#718]
+- fix(k8sprocessor): fix metadata enrichment [#724]
+- fix(k8sprocessor): keep pod's services information up to date [#710]
+- chore(deps): bump golang from 1.18.4 to 1.19.2 [#745]
+- chore(deps): bump go-boringcrypto to 1.18.7b7 [#746]
+- chore: upgrade OpenTelemetry Contrib Core to v0.62.0 [#769]
 
 ### Removed
 
-- feat(filterprocessor): drop custom changes ([upgrade guide][upgrade_guide_v0_55_0_expr_support]) [#709]
+- feat(filterprocessor): drop custom changes ([upgrade guide][upgrade_guide_v0_55_0_expr_support]) [#709] [#714]
+- feat(sumologicexporter): remove translating telegraf metric names ([upgrade guide][upgrade_guide_unreleased_moved_telegraf_translation]) [#678]
+- feat(sumologicexporter): remove translating attributes ([upgrade guide][upgrade_guide_unreleased_moved_translation]) [#672]
+- feat(sumologicexporter): remove setting source headers ([upgrade guide][upgrade_guide_v0_57_0_deprecate_source_templates]) [#686]
 
 [Unreleased]: https://github.com/SumoLogic/sumologic-otel-collector/compare/v0.57.2-sumo-0...main
+[#672]: https://github.com/SumoLogic/sumologic-otel-collector/pull/672
+[#678]: https://github.com/SumoLogic/sumologic-otel-collector/pull/678
+[#686]: https://github.com/SumoLogic/sumologic-otel-collector/pull/686
 [#709]: https://github.com/SumoLogic/sumologic-otel-collector/pull/709
+[#710]: https://github.com/SumoLogic/sumologic-otel-collector/pull/710
+[#714]: https://github.com/SumoLogic/sumologic-otel-collector/pull/714
 [#713]: https://github.com/SumoLogic/sumologic-otel-collector/pull/713
+[#718]: https://github.com/SumoLogic/sumologic-otel-collector/pull/718
+[#724]: https://github.com/SumoLogic/sumologic-otel-collector/pull/724
+[#745]: https://github.com/SumoLogic/sumologic-otel-collector/pull/745
+[#746]: https://github.com/SumoLogic/sumologic-otel-collector/pull/746
+[#769]: https://github.com/SumoLogic/sumologic-otel-collector/pull/769
+[#693]: https://github.com/SumoLogic/sumologic-otel-collector/pull/693
+[#767]: https://github.com/SumoLogic/sumologic-otel-collector/pull/767
+[upgrade_guide_unreleased]: ./docs/Upgrading.md#unreleased
 
 ## [v0.57.2-sumo-0]
 

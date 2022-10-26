@@ -41,32 +41,10 @@ const (
 	tracesDataUrl  = "/api/v1/collector/traces"
 )
 
-const translationDeprecationBanner = `
-***********************************************************************************************************************************************************
-***    Translating attributes is deprecated and is going to be dropped soon. Please see the migration document:                                         ***
-***    https://github.com/SumoLogic/sumologic-otel-collector/blob/main/docs/Upgrading.md#sumologic-exporter-drop-support-for-translating-attributes.    ***
-***********************************************************************************************************************************************************
-`
-
-const telegrafTranslationDeprecationBanner = `
-***********************************************************************************************************************************************************
-***    Translating Telegraf metric names is deprecated and is going to be dropped soon. Please see the migration document:                              ***
-***    https://github.com/SumoLogic/sumologic-otel-collector/blob/main/docs/Upgrading.md#sumologic-exporter-drop-support-for-translating-attributes.    ***
-***********************************************************************************************************************************************************
-`
-
-const sourceTemplatesDeprecationBanner = `
-***********************************************************************************************************************************************************
-***    Adding source headers is deprecated and is going to be dropped soon. Please see the migration document:                                          ***
-***    https://github.com/SumoLogic/sumologic-otel-collector/blob/main/docs/Upgrading.md#sumologic-exporter-drop-support-for-source-headers.            ***
-***********************************************************************************************************************************************************
-`
-
 type sumologicexporter struct {
-	sources sourceFormats
-	config  *Config
-	host    component.Host
-	logger  *zap.Logger
+	config *Config
+	host   component.Host
+	logger *zap.Logger
 
 	clientLock sync.RWMutex
 	client     *http.Client
@@ -84,43 +62,21 @@ type sumologicexporter struct {
 }
 
 func initExporter(cfg *Config, createSettings component.ExporterCreateSettings) (*sumologicexporter, error) {
-	if cfg.TranslateAttributes {
-		createSettings.Logger.Warn(translationDeprecationBanner)
-
-		cfg.SourceCategory = translateConfigValue(cfg.SourceCategory)
-		cfg.SourceHost = translateConfigValue(cfg.SourceHost)
-		cfg.SourceName = translateConfigValue(cfg.SourceName)
-	}
-
-	if cfg.TranslateTelegrafMetrics {
-		createSettings.Logger.Warn(telegrafTranslationDeprecationBanner)
-	}
-
-	if cfg.SourceCategory != "" || cfg.SourceHost != "" || cfg.SourceName != "" {
-		createSettings.Logger.Warn(sourceTemplatesDeprecationBanner)
-	}
-
-	sfs, err := newSourceFormats(cfg)
-	if err != nil {
-		return nil, err
-	}
-
 	pf, err := newPrometheusFormatter()
 	if err != nil {
 		return nil, err
 	}
 
 	se := &sumologicexporter{
-		config:  cfg,
-		logger:  createSettings.Logger,
-		sources: sfs,
+		config: cfg,
+		logger: createSettings.Logger,
 		compressorPool: sync.Pool{
 			New: func() any {
 				c, err := newCompressor(cfg.CompressEncoding)
 				if err != nil {
 					return fmt.Errorf("failed to initialize compressor: %w", err)
 				}
-				return c
+				return &c
 			},
 		},
 		// NOTE: client is now set in start()
@@ -138,8 +94,9 @@ func initExporter(cfg *Config, createSettings component.ExporterCreateSettings) 
 }
 
 func newLogsExporter(
-	cfg *Config,
+	ctx context.Context,
 	params component.ExporterCreateSettings,
+	cfg *Config,
 ) (component.LogsExporter, error) {
 	se, err := initExporter(cfg, params)
 	if err != nil {
@@ -147,8 +104,9 @@ func newLogsExporter(
 	}
 
 	return exporterhelper.NewLogsExporter(
-		cfg,
+		ctx,
 		params,
+		cfg,
 		se.pushLogsData,
 		// Disable exporterhelper Timeout, since we are using a custom mechanism
 		// within exporter itself
@@ -161,8 +119,9 @@ func newLogsExporter(
 }
 
 func newMetricsExporter(
-	cfg *Config,
+	ctx context.Context,
 	params component.ExporterCreateSettings,
+	cfg *Config,
 ) (component.MetricsExporter, error) {
 	se, err := initExporter(cfg, params)
 	if err != nil {
@@ -170,8 +129,9 @@ func newMetricsExporter(
 	}
 
 	return exporterhelper.NewMetricsExporter(
-		cfg,
+		ctx,
 		params,
+		cfg,
 		se.pushMetricsData,
 		// Disable exporterhelper Timeout, since we are using a custom mechanism
 		// within exporter itself
@@ -184,8 +144,9 @@ func newMetricsExporter(
 }
 
 func newTracesExporter(
-	cfg *Config,
+	ctx context.Context,
 	params component.ExporterCreateSettings,
+	cfg *Config,
 ) (component.TracesExporter, error) {
 	se, err := initExporter(cfg, params)
 	if err != nil {
@@ -193,8 +154,9 @@ func newTracesExporter(
 	}
 
 	return exporterhelper.NewTracesExporter(
-		cfg,
+		ctx,
 		params,
+		cfg,
 		se.pushTracesData,
 		// Disable exporterhelper Timeout, since we are using a custom mechanism
 		// within exporter itself
@@ -221,7 +183,6 @@ func (se *sumologicexporter) pushLogsData(ctx context.Context, ld plog.Logs) err
 		se.logger,
 		se.config,
 		se.getHTTPClient(),
-		se.sources,
 		compr,
 		se.prometheusFormatter,
 		metricsUrl,
@@ -254,9 +215,6 @@ func (se *sumologicexporter) pushLogsData(ctx context.Context, ld plog.Logs) err
 
 		se.dropRoutingAttribute(rl.Resource().Attributes())
 		currentMetadata := newFields(rl.Resource().Attributes())
-		if se.config.TranslateAttributes {
-			currentMetadata.translateAttributes()
-		}
 
 		if droppedRecords, err := sdr.sendNonOTLPLogs(ctx, rl, currentMetadata); err != nil {
 			dropped = append(dropped, droppedResourceRecords{
@@ -307,7 +265,6 @@ func (se *sumologicexporter) pushMetricsData(ctx context.Context, md pmetric.Met
 		se.logger,
 		se.config,
 		se.getHTTPClient(),
-		se.sources,
 		compr,
 		se.prometheusFormatter,
 		metricsUrl,
@@ -322,22 +279,6 @@ func (se *sumologicexporter) pushMetricsData(ctx context.Context, md pmetric.Met
 		rm := rms.At(i)
 
 		se.dropRoutingAttribute(rm.Resource().Attributes())
-
-		// TODO: Move these modifications to the Sumo schema processor
-		// we shouldn't modify data in an exporter, but these modifications are idempotent and therefore harmless
-		if se.config.TranslateAttributes {
-			translateAttributes(rm.Resource().Attributes()).
-				CopyTo(rm.Resource().Attributes())
-		}
-
-		if se.config.TranslateTelegrafMetrics {
-			for i := 0; i < rm.ScopeMetrics().Len(); i++ {
-				metricsSlice := rm.ScopeMetrics().At(i).Metrics()
-				for j := 0; j < metricsSlice.Len(); j++ {
-					translateTelegrafMetric(metricsSlice.At(j))
-				}
-			}
-		}
 	}
 
 	var droppedMetrics pmetric.Metrics
@@ -389,7 +330,6 @@ func (se *sumologicexporter) pushTracesData(ctx context.Context, td ptrace.Trace
 		se.logger,
 		se.config,
 		se.getHTTPClient(),
-		se.sources,
 		compr,
 		se.prometheusFormatter,
 		metricsUrl,
@@ -408,14 +348,14 @@ func (se *sumologicexporter) pushTracesData(ctx context.Context, td ptrace.Trace
 	return err
 }
 
-func (se *sumologicexporter) getCompressor() (compressor, error) {
+func (se *sumologicexporter) getCompressor() (*compressor, error) {
 	switch c := se.compressorPool.Get().(type) {
 	case error:
-		return compressor{}, fmt.Errorf("%v", c)
-	case compressor:
+		return &compressor{}, fmt.Errorf("%v", c)
+	case *compressor:
 		return c, nil
 	default:
-		return compressor{}, fmt.Errorf("unknown compressor type: %T", c)
+		return &compressor{}, fmt.Errorf("unknown compressor type: %T", c)
 	}
 }
 

@@ -45,19 +45,13 @@ func createDefaultConfig() config.Exporter {
 	qs.Enabled = false
 
 	return &Config{
-		ExporterSettings: config.NewExporterSettings(config.NewComponentID(typeStr)),
-
-		TranslateAttributes:      DefaultTranslateAttributes,
-		TranslateTelegrafMetrics: DefaultTranslateTelegrafMetrics,
-		CompressEncoding:         DefaultCompressEncoding,
-		MaxRequestBodySize:       DefaultMaxRequestBodySize,
-		LogFormat:                DefaultLogFormat,
-		MetricFormat:             DefaultMetricFormat,
-		SourceCategory:           DefaultSourceCategory,
-		SourceName:               DefaultSourceName,
-		SourceHost:               DefaultSourceHost,
-		Client:                   DefaultClient,
-		ClearLogsTimestamp:       DefaultClearLogsTimestamp,
+		ExporterSettings:   config.NewExporterSettings(config.NewComponentID(typeStr)),
+		CompressEncoding:   DefaultCompressEncoding,
+		MaxRequestBodySize: DefaultMaxRequestBodySize,
+		LogFormat:          DefaultLogFormat,
+		MetricFormat:       DefaultMetricFormat,
+		Client:             DefaultClient,
+		ClearLogsTimestamp: DefaultClearLogsTimestamp,
 		JSONLogs: JSONLogs{
 			LogKey:       DefaultLogKey,
 			AddTimestamp: DefaultAddTimestamp,
@@ -74,11 +68,11 @@ func createDefaultConfig() config.Exporter {
 }
 
 func createLogsExporter(
-	_ context.Context,
+	ctx context.Context,
 	params component.ExporterCreateSettings,
 	cfg config.Exporter,
 ) (component.LogsExporter, error) {
-	exp, err := newLogsExporter(cfg.(*Config), params)
+	exp, err := newLogsExporter(ctx, params, cfg.(*Config))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the logs exporter: %w", err)
 	}
@@ -87,11 +81,11 @@ func createLogsExporter(
 }
 
 func createMetricsExporter(
-	_ context.Context,
+	ctx context.Context,
 	params component.ExporterCreateSettings,
 	cfg config.Exporter,
 ) (component.MetricsExporter, error) {
-	exp, err := newMetricsExporter(cfg.(*Config), params)
+	exp, err := newMetricsExporter(ctx, params, cfg.(*Config))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the metrics exporter: %w", err)
 	}
@@ -100,11 +94,11 @@ func createMetricsExporter(
 }
 
 func createTracesExporter(
-	_ context.Context,
+	ctx context.Context,
 	params component.ExporterCreateSettings,
 	cfg config.Exporter,
 ) (component.TracesExporter, error) {
-	exp, err := newTracesExporter(cfg.(*Config), params)
+	exp, err := newTracesExporter(ctx, params, cfg.(*Config))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create the traces exporter: %w", err)
 	}

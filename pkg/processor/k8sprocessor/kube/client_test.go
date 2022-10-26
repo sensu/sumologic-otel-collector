@@ -33,6 +33,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
@@ -239,22 +240,24 @@ func TestPodAddOutOfSync(t *testing.T) {
 
 	pod := &api_v1.Pod{}
 	pod.Name = "podA"
+	pod.Namespace = "namespace"
 	pod.Status.PodIP = "1.1.1.1"
 	startTime := meta_v1.NewTime(time.Now())
 	pod.Status.StartTime = &startTime
 	c.handlePodAdd(pod)
-	assert.Equal(t, len(c.Pods), 1)
+	assert.Equal(t, len(c.Pods), 2)
 	got := c.Pods["1.1.1.1"]
 	assert.Equal(t, got.Address, "1.1.1.1")
 	assert.Equal(t, got.Name, "podA")
 
 	pod2 := &api_v1.Pod{}
 	pod2.Name = "podB"
-	pod.Status.PodIP = "1.1.1.1"
+	pod2.Namespace = "namespace"
+	pod2.Status.PodIP = "1.1.1.1"
 	startTime2 := meta_v1.NewTime(time.Now().Add(-time.Second * 10))
-	pod.Status.StartTime = &startTime2
-	c.handlePodAdd(pod)
-	assert.Equal(t, len(c.Pods), 1)
+	pod2.Status.StartTime = &startTime2
+	c.handlePodAdd(pod2)
+	assert.Equal(t, len(c.Pods), 3)
 	got = c.Pods["1.1.1.1"]
 	assert.Equal(t, got.Address, "1.1.1.1")
 	assert.Equal(t, got.Name, "podA")
@@ -400,14 +403,23 @@ func TestGetPod(t *testing.T) {
 	pod.UID = "1234"
 	pod.Name = "pod_name"
 	pod.Namespace = "namespace_name"
+	pod.OwnerReferences = []meta_v1.OwnerReference{
+		metav1.OwnerReference{
+			Name: "A reference",
+		},
+		metav1.OwnerReference{
+			Name: "Another reference",
+		},
+	}
 	c.handlePodAdd(pod)
 
 	expected := &Pod{
-		Name:       "pod_name",
-		Namespace:  "namespace_name",
-		Address:    "1.1.1.1",
-		PodUID:     "1234",
-		Attributes: map[string]string{},
+		Name:            "pod_name",
+		Namespace:       "namespace_name",
+		Address:         "1.1.1.1",
+		PodUID:          "1234",
+		Attributes:      map[string]string{},
+		OwnerReferences: &pod.OwnerReferences,
 	}
 
 	got, ok := c.GetPod(PodIdentifier("1.1.1.1"))
@@ -444,6 +456,7 @@ func TestGetPodWhenNamespaceInExtractedMetadata(t *testing.T) {
 		Attributes: map[string]string{
 			"namespace": "namespace_name",
 		},
+		OwnerReferences: &pod.OwnerReferences,
 	}
 
 	got, ok := c.GetPod(PodIdentifier("1.1.1.1"))
@@ -1170,6 +1183,67 @@ func newTestClientWithRulesAndFilters(t *testing.T, e ExtractionRules, f Filters
 
 func newTestClient(t *testing.T) (*WatchClient, *observer.ObservedLogs) {
 	return newTestClientWithRulesAndFilters(t, ExtractionRules{}, Filters{})
+}
+
+func TestServiceInfoArrivesLate(t *testing.T) {
+	// Concept: we insert a pod with no service associated,
+	// then update the service in the cache,
+	// then try fetching the pod and see that it doesn't contain the service
+	logger, err := zap.NewDevelopment()
+	require.NoError(t, err)
+
+	podUID := "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+	cache := OwnerCache{
+		objectOwners: map[string]*ObjectOwner{},
+		podServices:  map[string][]string{},
+		namespaces:   map[string]*api_v1.Namespace{},
+		logger:       logger,
+		stopCh:       make(chan struct{}),
+	}
+	cache.podServices["pod"] = []string{"firstService", "secondService"}
+
+	var client = &WatchClient{
+		logger:    logger,
+		op:        &cache,
+		delimiter: ", ",
+		Rules: ExtractionRules{
+			OwnerLookupEnabled: true,
+			ServiceName:        true,
+			Tags: ExtractionFieldTags{
+				ServiceName: "ServiceName",
+			},
+		},
+		Pods: map[PodIdentifier]*Pod{},
+	}
+
+	pod := &api_v1.Pod{}
+	pod.Name = "pod"
+	pod.Status.PodIP = "2.2.2.2"
+	pod.UID = types.UID(podUID)
+
+	client.handlePodAdd(pod)
+
+	podResult, ok := client.GetPod(PodIdentifier(podUID))
+	assert.True(t, ok)
+
+	logger.Debug("pod: ", zap.Any("pod", podResult))
+	serviceName, ok := podResult.Attributes["ServiceName"]
+	assert.True(t, ok)
+
+	// After PodAdd, there are two services:
+	assert.Equal(t, "firstService, secondService", serviceName)
+
+	cache.podServices["pod"] = []string{"firstService", "secondService", "thirdService"}
+
+	podResult, ok = client.GetPod(PodIdentifier(podUID))
+	assert.True(t, ok)
+
+	logger.Debug("pod: ", zap.Any("pod", podResult))
+	serviceName, ok = podResult.Attributes["ServiceName"]
+	assert.True(t, ok)
+
+	// Desired behavior: we get all three service names in response:
+	assert.Equal(t, "firstService, secondService, thirdService", serviceName)
 }
 
 //func newBenchmarkClient(b *testing.B) *WatchClient {

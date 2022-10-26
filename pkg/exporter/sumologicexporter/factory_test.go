@@ -43,9 +43,6 @@ func TestCreateDefaultConfig(t *testing.T) {
 		MaxRequestBodySize: 1_048_576,
 		LogFormat:          "otlp",
 		MetricFormat:       "otlp",
-		SourceCategory:     "",
-		SourceName:         "",
-		SourceHost:         "",
 		Client:             "otelcol",
 		ClearLogsTimestamp: true,
 		JSONLogs: JSONLogs{
@@ -53,9 +50,7 @@ func TestCreateDefaultConfig(t *testing.T) {
 			AddTimestamp: true,
 			TimestampKey: "timestamp",
 		},
-		TranslateAttributes:      true,
-		TranslateTelegrafMetrics: true,
-		TraceFormat:              "otlp",
+		TraceFormat: "otlp",
 
 		HTTPClientSettings: confighttp.HTTPClientSettings{
 			Timeout: 5 * time.Second,

@@ -4,14 +4,13 @@
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//       http://www.apache.org/licenses/LICENSE-2.0
+//	http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//
 package bigendianconverter
 
 import (
@@ -30,12 +29,12 @@ func UInt64ToTraceID(high, low uint64) pcommon.TraceID {
 	traceID := [16]byte{}
 	binary.BigEndian.PutUint64(traceID[:8], high)
 	binary.BigEndian.PutUint64(traceID[8:], low)
-	return pcommon.NewTraceID(traceID)
+	return pcommon.TraceID(traceID)
 }
 
 // SpanIDToUInt64 converts the pcommon.SpanID to uint64 representation.
 func SpanIDToUInt64(spanID pcommon.SpanID) uint64 {
-	bytes := spanID.Bytes()
+	bytes := spanID
 	return binary.BigEndian.Uint64(bytes[:])
 }
 
@@ -43,5 +42,5 @@ func SpanIDToUInt64(spanID pcommon.SpanID) uint64 {
 func UInt64ToSpanID(id uint64) pcommon.SpanID {
 	spanID := [8]byte{}
 	binary.BigEndian.PutUint64(spanID[:], id)
-	return pcommon.NewSpanID(spanID)
+	return pcommon.SpanID(spanID)
 }

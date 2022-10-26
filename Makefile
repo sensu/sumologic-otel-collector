@@ -1,4 +1,4 @@
-GOLANGCI_LINT_VERSION ?= v1.45.2
+GOLANGCI_LINT_VERSION ?= v1.49
 SHELL := /usr/bin/env bash
 
 all: markdownlint yamllint
@@ -33,6 +33,9 @@ markdown-links-lint:
 
 markdown-link-check:
 	./ci/markdown_link_check.sh
+
+shellcheck:
+	./ci/shellcheck.sh
 
 # ref: https://pre-commit.com/
 .PHONY: pre-commit-check
