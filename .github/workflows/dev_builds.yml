@@ -325,7 +325,7 @@ jobs:
 
   wixext-unit:
     name: Unit Tests (SumoLogic.wixext)
-    runs-on: windows-2022
+    runs-on: windows-2019
     steps:
       - uses: actions/checkout@v3
 
@@ -345,7 +345,7 @@ jobs:
 
   package-msi:
     name: Package MSI
-    runs-on: windows-2022
+    runs-on: windows-2019
     needs:
       - build
       - wixext-unit
