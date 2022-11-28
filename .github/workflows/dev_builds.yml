@@ -332,6 +332,9 @@ jobs:
       - name: Fetch current branch
         run: ./ci/fetch_current_branch.sh
 
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
+
       - name: Build unit tests
         working-directory: ./packaging/msi/SumoLogic.wixext/SumoLogicTests
         run: msbuild.exe -p:Configuration=Release -p:Platform=AnyCPU
@@ -351,6 +354,9 @@ jobs:
 
       - name: Fetch current branch
         run: ./ci/fetch_current_branch.sh
+
+      - name: Add msbuild to PATH
+        uses: microsoft/setup-msbuild@v1.1
 
       - name: Fetch binary artifact for windows/amd64
         uses: actions/download-artifact@v3
