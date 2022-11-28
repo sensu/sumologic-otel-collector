@@ -6,7 +6,7 @@
     <UpgradeCode>33D8E84A-1581-41DC-AF17-E48459B895C5</UpgradeCode>
     <Cultures>en-US</Cultures>
     <DebugType>none</DebugType>
-    <RepoRoot>$([System.IO.Path]::GetFullPath('..\..\..'))</RepoRoot>
+    <RepoRoot>..\..\..</RepoRoot>
   </PropertyGroup>
 
   <PropertyGroup>
