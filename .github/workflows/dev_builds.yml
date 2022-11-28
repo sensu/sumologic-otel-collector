@@ -337,7 +337,7 @@ jobs:
 
       - name: Build unit tests
         working-directory: ./packaging/msi/SumoLogic.wixext/SumoLogicTests
-        run: msbuild.exe -p:Configuration=Release -p:Platform=AnyCPU
+        run: msbuild.exe -p:Configuration=Release -p:Platform=AnyCPU -Restore
 
       - name: Run unit tests
         working-directory: ./packaging/msi/SumoLogic.wixext/SumoLogicTests/bin/Release
@@ -366,7 +366,7 @@ jobs:
 
       - name: Build MSI for windows/amd64
         working-directory: ./packaging/msi/wix
-        run: msbuild.exe -p:Configuration=Release -p:Platform=x64
+        run: msbuild.exe -p:Configuration=Release -p:Platform=x64 -Restore
 
       - name: Store MSIs as action artifact
         uses: actions/upload-artifact@v3
