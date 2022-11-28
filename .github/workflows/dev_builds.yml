@@ -335,6 +335,10 @@ jobs:
       - name: Add msbuild to PATH
         uses: microsoft/setup-msbuild@v1.1
 
+      - name: Restore NuGet packages
+        working-directory: ./packaging/msi/SumoLogic.wixext/SumoLogicTests
+        run: nuget.exe restore -PackagesDirectory ../packages
+
       - name: Build unit tests
         working-directory: ./packaging/msi/SumoLogic.wixext/SumoLogicTests
         run: msbuild.exe -p:Configuration=Release -p:Platform=AnyCPU -Restore
