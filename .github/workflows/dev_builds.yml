@@ -368,9 +368,25 @@ jobs:
           name: otelcol-sumo-windows_amd64.exe
           path: ./otelcolbuilder/cmd/otelcol-sumo-windows_amd64.exe
 
-      - name: DEBUG
+      - name: DEBUG 1
         run: |
           pwd && ls -l ./otelcolbuilder/cmd/
+
+      - name: DEBUG 2
+        shell: pwsh
+        run: dir D:\a\sumologic-otel-collector
+
+      - name: DEBUG 3
+        shell: pwsh
+        run: dir D:\a\sumologic-otel-collector\sumologic-otel-collector
+
+      - name: DEBUG 4
+        shell: pwsh
+        run: dir D:\a\sumologic-otel-collector\sumologic-otel-collector\otelcolbuilder
+
+      - name: DEBUG 5
+        shell: pwsh
+        run: dir D:\a\sumologic-otel-collector\sumologic-otel-collector\otelcolbuilder\cmd
 
       - name: Build MSI for windows/amd64
         working-directory: ./packaging/msi/wix
