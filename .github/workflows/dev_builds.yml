@@ -133,7 +133,7 @@ jobs:
       - name: Store binary as action artifact
         uses: actions/upload-artifact@v3
         with:
-          name: otelcol-sumo-${{matrix.arch_os}}
+          name: otelcol-sumo-${{matrix.arch_os}}${{matrix.builder_bin_ext}}
           path: ./otelcolbuilder/cmd/otelcol-sumo-${{matrix.arch_os}}${{matrix.builder_bin_ext}}
           if-no-files-found: error
 
@@ -322,3 +322,49 @@ jobs:
           make push-container-manifest-dev \
             BUILD_TAG=${{ steps.extract_tag.outputs.tag }} \
             PLATFORMS="linux/amd64 linux/arm64"
+
+  wixext-unit:
+    name: Unit Tests (SumoLogic.wixext)
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Fetch current branch
+        run: ./ci/fetch_current_branch.sh
+
+      - name: Build unit tests
+        working-directory: ./packaging/msi/SumoLogic.wixext/SumoLogicTests
+        run: msbuild.exe -p:Configuration=Release -p:Platform=AnyCPU
+
+      - name: Run unit tests
+        working-directory: ./packaging/msi/SumoLogic.wixext/SumoLogicTests/bin/Release
+        run: dotnet test -v:n ./SumoLogicTests.dll
+
+  package-msi:
+    name: Package MSI
+    runs-on: windows-2022
+    needs:
+      - build
+      - wixext-unit
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Fetch current branch
+        run: ./ci/fetch_current_branch.sh
+
+      - name: Fetch binary artifact for windows/amd64
+        uses: actions/download-artifact@v3
+        with:
+          name: otelcol-sumo-windows_amd64.exe
+          path: ./otelcolbuilder/cmd/otelcol-sumo-windows_amd64.exe
+
+      - name: Build MSI for windows/amd64
+        working-directory: ./packaging/msi/wix
+        run: msbuild.exe -p:Configuration=Release -p:Platform=x64
+
+      - name: Store MSIs as action artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: otelcol-sumo-msis
+          path: ./packaging/msi/wix/bin/*/*/*.msi
+          if-no-files-found: error
