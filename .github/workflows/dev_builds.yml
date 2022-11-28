@@ -336,8 +336,8 @@ jobs:
         uses: microsoft/setup-msbuild@v1.1
 
       - name: Restore NuGet packages
-        working-directory: ./packaging/msi/SumoLogic.wixext
-        run: nuget.exe restore
+        working-directory: ./packaging/msi/SumoLogic.wixext/SumoLogicTests
+        run: nuget.exe restore -PackagesDirectory ../packages
 
       - name: Build unit tests
         working-directory: ./packaging/msi/SumoLogic.wixext/SumoLogicTests
