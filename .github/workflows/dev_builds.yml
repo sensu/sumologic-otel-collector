@@ -366,7 +366,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: otelcol-sumo-windows_amd64.exe
-          path: ./otelcolbuilder/cmd/otelcol-sumo-windows_amd64.exe
+          path: ./otelcolbuilder/cmd
 
       - name: DEBUG 1
         run: |
