@@ -6,12 +6,7 @@ set -eo pipefail
 # ProductVersion.
 #
 # https://learn.microsoft.com/en-us/windows/win32/msi/productversion
-#
 # MAJOR.MINOR.BUILD.INTERNAL
-# major can be 0-255
-# minor can be 0-255
-# build can be 0-65535
-# internal can be 0-6553
 
 declare -i major_version
 declare -i minor_version
@@ -23,7 +18,7 @@ declare -i ot_channel_version
 #declare sumo_channel
 declare -i sumo_channel_version
 
-version_tag="$(git tag -l --sort -version:refname | head -n 1)"
+version_tag="${VERSION_TAG:-$(git tag -l --sort -version:refname | head -n 1)}"
 version_regex="^v([0-9]+).([0-9]+).([0-9]+)((-(alpha|beta|rc|sumo)[-.]([0-9]+))(-(alpha|beta|rc).([0-9])+)?)?$"
 
 if [[ $version_tag =~ $version_regex ]]; then
