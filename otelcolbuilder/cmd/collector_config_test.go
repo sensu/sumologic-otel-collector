@@ -19,6 +19,7 @@ package main
 
 import (
 	"context"
+	"os"
 	"testing"
 	"time"
 
@@ -30,6 +31,8 @@ import (
 )
 
 func TestBuiltCollectorWithConfigurationFiles(t *testing.T) {
+	t.Setenv("TMPDIR", os.TempDir())
+
 	testcases := []struct {
 		name       string
 		configFile string
@@ -90,8 +93,7 @@ func TestBuiltCollectorWithConfigurationFiles(t *testing.T) {
 			require.NoError(t, err)
 
 			locations := []string{tc.configFile}
-			setFlags := []string{}
-			cp, err := NewConfigProvider(locations, setFlags)
+			cp, err := NewConfigProvider(locations)
 			require.NoError(t, err)
 
 			t.Log("Creating new app...")
@@ -110,7 +112,7 @@ func TestBuiltCollectorWithConfigurationFiles(t *testing.T) {
 
 				for {
 					switch state := app.GetState(); state {
-					case service.Running:
+					case service.StateRunning:
 						t.Log("App is in the running state, calling .Shutdown()...")
 						time.Sleep(time.Second)
 						app.Shutdown()

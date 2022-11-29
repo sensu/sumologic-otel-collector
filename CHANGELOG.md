@@ -11,21 +11,25 @@ This release introduces the following breaking changes:
 
 - `filelog` receiver: has been removed from sub-parsers ([upgrade guide][upgrade_guide_unreleased]) [#769]
 - `sending_queue`: require explicit storage set ([upgrade guide][upgrade_guide_unreleased]) [#769]
+- `apache` receiver: turn on feature gates for resource attributes ([upgrade guide][upgrade_guide_unreleased]) [#839]
+- `elasticsearch` receiver: turn on feature gates for resource attributes ([upgrade guide][upgrade_guide_unreleased]) [#848]
 
 ### Added
 
 - feat: add glob config provider [#713]
 - feat(build): validate FIPS mode at build time and runtime [#693]
+- feat(ci): add windows builds to dev & pr jobs [#762]
 
 ### Changed
 
-- feat(build): use patched versions of four upstream receivers [#767]
 - fix(sumologicexporter): do not crash if server returns unknown length response [#718]
 - fix(k8sprocessor): fix metadata enrichment [#724]
 - fix(k8sprocessor): keep pod's services information up to date [#710]
 - chore(deps): bump golang from 1.18.4 to 1.19.2 [#745]
 - chore(deps): bump go-boringcrypto to 1.18.7b7 [#746]
-- chore: upgrade OpenTelemetry Contrib Core to v0.62.0 [#769]
+- feat(sourceprocessor): ensure that '_collector' is set before other source headers [#824]
+- chore(deps): upgrade Telegraf to 1.24.3-sumo-1 [#828]
+- chore: upgrade OT core to v0.66.0 [#769] [#826] [#844] [#849]
 
 ### Removed
 
@@ -34,7 +38,7 @@ This release introduces the following breaking changes:
 - feat(sumologicexporter): remove translating attributes ([upgrade guide][upgrade_guide_unreleased_moved_translation]) [#672]
 - feat(sumologicexporter): remove setting source headers ([upgrade guide][upgrade_guide_v0_57_0_deprecate_source_templates]) [#686]
 
-[Unreleased]: https://github.com/SumoLogic/sumologic-otel-collector/compare/v0.57.2-sumo-0...main
+[Unreleased]: https://github.com/SumoLogic/sumologic-otel-collector/compare/v0.57.2-sumo-1...main
 [#672]: https://github.com/SumoLogic/sumologic-otel-collector/pull/672
 [#678]: https://github.com/SumoLogic/sumologic-otel-collector/pull/678
 [#686]: https://github.com/SumoLogic/sumologic-otel-collector/pull/686
@@ -46,12 +50,32 @@ This release introduces the following breaking changes:
 [#724]: https://github.com/SumoLogic/sumologic-otel-collector/pull/724
 [#745]: https://github.com/SumoLogic/sumologic-otel-collector/pull/745
 [#746]: https://github.com/SumoLogic/sumologic-otel-collector/pull/746
+[#762]: https://github.com/SumoLogic/sumologic-otel-collector/pull/762
 [#769]: https://github.com/SumoLogic/sumologic-otel-collector/pull/769
 [#693]: https://github.com/SumoLogic/sumologic-otel-collector/pull/693
-[#767]: https://github.com/SumoLogic/sumologic-otel-collector/pull/767
-[upgrade_guide_unreleased]: ./docs/Upgrading.md#unreleased
+[#824]: https://github.com/SumoLogic/sumologic-otel-collector/pull/824
+[#828]: https://github.com/SumoLogic/sumologic-otel-collector/pull/828
+[#826]: https://github.com/SumoLogic/sumologic-otel-collector/pull/826
+[#844]: https://github.com/SumoLogic/sumologic-otel-collector/pull/844
+[#849]: https://github.com/SumoLogic/sumologic-otel-collector/pull/849
+[#839]: https://github.com/SumoLogic/sumologic-otel-collector/pull/839
+[#848]: https://github.com/SumoLogic/sumologic-otel-collector/pull/848
+[upgrade_guide_unreleased]: ./docs/upgrading.md#unreleased
+
+## [v0.57.2-sumo-1]
+
+### Released 2022-09-14
+
+### Changed
+
+- fix(k8sprocessor): fix metadata enrichment [#725]
+
+[v0.57.2-sumo-1]: https://github.com/SumoLogic/sumologic-otel-collector/compare/v0.57.2-sumo-0...v0.57.2-sumo-1
+[#725]: https://github.com/SumoLogic/sumologic-otel-collector/pull/725
 
 ## [v0.57.2-sumo-0]
+
+### Released 2022-08-12
 
 This release deprecates the following features, which will be removed in `v0.60.0`:
 
@@ -63,8 +87,8 @@ This release deprecates the following features, which will be removed in `v0.60.
 - feat: define stability levels for components [#701]
 - chore: upgrade OpenTelemetry Core to v0.57.2 [#699]
 
-[v0.56.0-sumo-0]: https://github.com/SumoLogic/sumologic-otel-collector/compare/v0.56.0-sumo-0...v0.57.2-sumo-0
-[upgrade_guide_v0_57_0_deprecate_source_templates]: ./docs/Upgrading.md#sumologic-exporter-drop-support-for-source-headers
+[v0.57.2-sumo-0]: https://github.com/SumoLogic/sumologic-otel-collector/compare/v0.56.0-sumo-0...v0.57.2-sumo-0
+[upgrade_guide_v0_57_0_deprecate_source_templates]: ./docs/upgrading.md#sumologic-exporter-drop-support-for-source-headers
 [#699]: https://github.com/SumoLogic/sumologic-otel-collector/pull/699/
 [#701]: https://github.com/SumoLogic/sumologic-otel-collector/pull/701/
 
@@ -96,8 +120,8 @@ This release deprecates the following features, which will be removed in `v0.59.
 [v0.56.0-sumo-0]: https://github.com/SumoLogic/sumologic-otel-collector/compare/v0.55.0-sumo-0...v0.56.0-sumo-0
 [#668]: https://github.com/SumoLogic/sumologic-otel-collector/pull/668
 [#674]: https://github.com/SumoLogic/sumologic-otel-collector/pull/674
-[upgrade_guide_unreleased_moved_translation]: ./docs/Upgrading.md#sumologic-exporter-drop-support-for-translating-attributes
-[upgrade_guide_unreleased_moved_telegraf_translation]: ./docs/Upgrading.md#sumologic-exporter-drop-support-for-translating-telegraf-metric-names
+[upgrade_guide_unreleased_moved_translation]: ./docs/upgrading.md#sumologic-exporter-drop-support-for-translating-attributes
+[upgrade_guide_unreleased_moved_telegraf_translation]: ./docs/upgrading.md#sumologic-exporter-drop-support-for-translating-telegraf-metric-names
 
 ## [v0.55.0-sumo-0]
 
@@ -131,7 +155,7 @@ This release deprecates the following change:
 [#660]: https://github.com/SumoLogic/sumologic-otel-collector/pull/660
 [#661]: https://github.com/SumoLogic/sumologic-otel-collector/pull/661
 [#655]: https://github.com/SumoLogic/sumologic-otel-collector/pull/655
-[upgrade_guide_v0_55_0_expr_support]: ./docs/Upgrading.md#filter-processor-drop-support-for-expr-language
+[upgrade_guide_v0_55_0_expr_support]: ./docs/upgrading.md#filter-processor-drop-support-for-expr-language
 
 ## [v0.54.0-sumo-0]
 
@@ -231,8 +255,8 @@ See [Upgrade guide][upgrade_guide_v0_52_0] for the breaking changes in this vers
 [#593]: https://github.com/SumoLogic/sumologic-otel-collector/pull/593
 [#600]: https://github.com/SumoLogic/sumologic-otel-collector/pull/600
 [#601]: https://github.com/SumoLogic/sumologic-otel-collector/pull/601
-[upgrade_guide_v0_52_0]: ./docs/Upgrading.md#upgrading-to-v0520-sumo-0
-[upgrade_guide_v0_52_0_metrics_support]: ./docs/Upgrading.md#sumologic-exporter-removed-carbon2-and-graphite-metric-formats
+[upgrade_guide_v0_52_0]: ./docs/upgrading.md#upgrading-to-v0520-sumo-0
+[upgrade_guide_v0_52_0_metrics_support]: ./docs/upgrading.md#sumologic-exporter-removed-carbon2-and-graphite-metric-formats
 
 ## [v0.51.0-sumo-0]
 
@@ -259,9 +283,9 @@ See [Upgrade guide][upgrade_guide_v0_51_0] for the breaking changes in this vers
 - fix: fix(cascadingfilterprocessor): do not attach sampling.rule attribute if trace accept rules are not specified [#575][#575]
 
 [v0.51.0-sumo-0]: https://github.com/SumoLogic/sumologic-otel-collector/compare/v0.50.0-sumo-0...v0.51.0-sumo-0
-[upgrade_guide_v0_51_0]: ./docs/Upgrading.md#upgrading-to-v0510-sumo-0
-[upgrade_guide_v0_51_0_cluster_name]: ./docs/Upgrading.md#k8s_tagger-processor-removed-clustername-metadata-extraction-option
-[upgrade_guide_v0_51_0_attribute_translation]: ./docs/Upgrading.md#sumologic-exporter-metadata-translation-changed-the-attribute-that-is-translated-to-_sourcename-from-filepathresolved-to-logfilepath_resolved
+[upgrade_guide_v0_51_0]: ./docs/upgrading.md#upgrading-to-v0510-sumo-0
+[upgrade_guide_v0_51_0_cluster_name]: ./docs/upgrading.md#k8s_tagger-processor-removed-clustername-metadata-extraction-option
+[upgrade_guide_v0_51_0_attribute_translation]: ./docs/upgrading.md#sumologic-exporter-metadata-translation-changed-the-attribute-that-is-translated-to-_sourcename-from-filepathresolved-to-logfilepath_resolved
 [#576]: https://github.com/SumoLogic/sumologic-otel-collector/pull/576
 [#575]: https://github.com/SumoLogic/sumologic-otel-collector/pull/575
 [#578]: https://github.com/SumoLogic/sumologic-otel-collector/pull/578
@@ -312,8 +336,8 @@ for more details.
 - fix(cascadingfilterprocessor): prevent overriding metrics in cascading filter processor - add processor tag [#539][#539]
 
 [v0.49.0-sumo-0]: https://github.com/SumoLogic/sumologic-otel-collector/compare/v0.48.0-sumo-0...v0.49.0-sumo-0
-[upgrade-guide-log-collection]: docs/Upgrading.md#several-changes-to-receivers-using-opentelemetry-log-collection
-[upgrade-guide-metadata]: docs/Upgrading.md#sumo-logic-exporter-metadata-handling
+[upgrade-guide-log-collection]: docs/upgrading.md#several-changes-to-receivers-using-opentelemetry-log-collection
+[upgrade-guide-metadata]: docs/upgrading.md#sumo-logic-exporter-metadata-handling
 [#546]: https://github.com/SumoLogic/sumologic-otel-collector/pull/546
 [#550]: https://github.com/SumoLogic/sumologic-otel-collector/pull/550
 [#553]: https://github.com/SumoLogic/sumologic-otel-collector/pull/553

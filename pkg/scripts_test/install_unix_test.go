@@ -1,35 +1,13 @@
+//go:build !windows
+
 package sumologic_scripts_tests
 
 import (
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
-func tearDown(t *testing.T) {
-	t.Log("Cleaning up")
-	ch := check{
-		test: t,
-		installOptions: installOptions{
-			uninstall: true,
-			purge:     true,
-		},
-	}
-
-	_, _, err := runScript(ch)
-	require.NoError(t, err)
-}
-
 func TestInstallScript(t *testing.T) {
-	for _, tt := range []struct {
-		name              string
-		options           installOptions
-		preChecks         []checkFunc
-		postChecks        []checkFunc
-		preActions        []checkFunc
-		conditionalChecks []condCheckFunc
-		installCode       int
-	}{
+	for _, spec := range []testSpec{
 		{
 			name:        "no arguments",
 			options:     installOptions{},
@@ -46,25 +24,34 @@ func TestInstallScript(t *testing.T) {
 			postChecks: []checkFunc{checkBinaryCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkSystemdConfigNotCreated, checkUserNotExists},
 		},
 		{
+			name: "skip config",
+			options: installOptions{
+				skipConfig:       true,
+				skipInstallToken: true,
+			},
+			preChecks:  []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkUserNotExists},
+			postChecks: []checkFunc{checkBinaryCreated, checkConfigNotCreated, checkUserConfigNotCreated},
+		},
+		{
 			name: "skip install token",
 			options: installOptions{
 				skipInstallToken: true,
 			},
-			preChecks:  []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkUserNotExists},
-			postChecks: []checkFunc{checkBinaryCreated, checkBinaryIsRunning, checkConfigCreated, checkUserConfigNotCreated, checkSystemdConfigNotCreated},
-		},
-		{
-			name: "autoconfirm",
-			options: installOptions{
-				skipInstallToken: true,
+			preChecks: []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkUserNotExists},
+			postChecks: []checkFunc{
+				checkBinaryCreated,
+				checkBinaryIsRunning,
+				checkConfigCreated,
+				checkConfigPathPermissions,
+				checkUserConfigNotCreated,
+				checkSystemdConfigNotCreated,
 			},
-			preChecks:  []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkUserNotExists},
-			postChecks: []checkFunc{checkBinaryCreated, checkBinaryIsRunning, checkConfigCreated, checkUserConfigNotCreated, checkSystemdConfigNotCreated},
 		},
 		{
 			name: "override default config",
 			options: installOptions{
 				skipInstallToken: true,
+				autoconfirm:      true,
 			},
 			preActions: []checkFunc{preActionMockConfig},
 			preChecks:  []checkFunc{checkBinaryNotCreated, checkConfigCreated, checkUserConfigNotCreated, checkUserNotExists},
@@ -74,31 +61,67 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "installation token only",
 			options: installOptions{
-				disableSystemd: true,
-				installToken:   installToken,
+				skipSystemd:  true,
+				installToken: installToken,
 			},
 			preChecks: []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkUserNotExists},
-			postChecks: []checkFunc{checkBinaryCreated, checkBinaryIsRunning, checkConfigCreated, checkUserConfigCreated, checkTokenInConfig,
-				checkSystemdConfigNotCreated, checkUserNotExists},
+			postChecks: []checkFunc{
+				checkBinaryCreated,
+				checkBinaryIsRunning,
+				checkConfigCreated,
+				checkConfigPathPermissions,
+				checkUserConfigCreated,
+				checkTokenInConfig,
+				checkSystemdConfigNotCreated,
+				checkUserNotExists,
+			},
+		},
+		{
+			name: "installation token only, binary not in PATH",
+			options: installOptions{
+				skipSystemd:  true,
+				installToken: installToken,
+				envs: map[string]string{
+					"PATH": "/sbin:/bin:/usr/sbin:/usr/bin",
+				},
+			},
+			preChecks: []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkUserNotExists},
+			postChecks: []checkFunc{
+				checkBinaryCreated,
+				checkBinaryIsRunning,
+				checkConfigCreated,
+				checkConfigPathPermissions,
+				checkUserConfigCreated,
+				checkTokenInConfig,
+				checkSystemdConfigNotCreated,
+				checkUserNotExists,
+			},
 		},
 		{
 			name: "installation token only (envs)",
 			options: installOptions{
-				disableSystemd: true,
+				skipSystemd: true,
 				envs: map[string]string{
 					"SUMOLOGIC_INSTALL_TOKEN": installToken,
 				},
 			},
 			preChecks: []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated},
 			postChecks: []checkFunc{
-				checkBinaryCreated, checkBinaryIsRunning, checkConfigCreated, checkUserConfigCreated,
-				checkEnvTokenInConfig, checkSystemdConfigNotCreated, checkUserNotExists},
+				checkBinaryCreated,
+				checkBinaryIsRunning,
+				checkConfigCreated,
+				checkConfigPathPermissions,
+				checkUserConfigCreated,
+				checkEnvTokenInConfig,
+				checkSystemdConfigNotCreated,
+				checkUserNotExists,
+			},
 		},
 		{
 			name: "same installation token",
 			options: installOptions{
-				disableSystemd: true,
-				installToken:   installToken,
+				skipSystemd:  true,
+				installToken: installToken,
 			},
 			preActions: []checkFunc{preActionMockUserConfig, preActionWriteTokenToUserConfig},
 			preChecks:  []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigCreated, checkUserNotExists},
@@ -107,8 +130,8 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "different installation token",
 			options: installOptions{
-				disableSystemd: true,
-				installToken:   installToken,
+				skipSystemd:  true,
+				installToken: installToken,
 			},
 			preActions:  []checkFunc{preActionMockUserConfig, preActionWriteDifferentTokenToUserConfig},
 			preChecks:   []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigCreated, checkUserNotExists},
@@ -118,8 +141,8 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "adding installation token",
 			options: installOptions{
-				disableSystemd: true,
-				installToken:   installToken,
+				skipSystemd:  true,
+				installToken: installToken,
 			},
 			preActions: []checkFunc{preActionMockUserConfig},
 			preChecks:  []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigCreated, checkUserNotExists},
@@ -128,9 +151,9 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "editing installation token",
 			options: installOptions{
-				disableSystemd: true,
-				apiBaseURL:     apiBaseURL,
-				installToken:   installToken,
+				skipSystemd:  true,
+				apiBaseURL:   apiBaseURL,
+				installToken: installToken,
 			},
 			preActions: []checkFunc{preActionMockUserConfig, preActionWriteEmptyUserConfig},
 			preChecks:  []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigCreated, checkUserNotExists},
@@ -139,7 +162,7 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "same api base url",
 			options: installOptions{
-				disableSystemd:   true,
+				skipSystemd:      true,
 				apiBaseURL:       apiBaseURL,
 				skipInstallToken: true,
 			},
@@ -151,7 +174,7 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "different api base url",
 			options: installOptions{
-				disableSystemd:   true,
+				skipSystemd:      true,
 				apiBaseURL:       apiBaseURL,
 				skipInstallToken: true,
 			},
@@ -164,7 +187,7 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "adding api base url",
 			options: installOptions{
-				disableSystemd:   true,
+				skipSystemd:      true,
 				apiBaseURL:       apiBaseURL,
 				skipInstallToken: true,
 			},
@@ -175,7 +198,7 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "editing api base url",
 			options: installOptions{
-				disableSystemd:   true,
+				skipSystemd:      true,
 				apiBaseURL:       apiBaseURL,
 				skipInstallToken: true,
 			},
@@ -186,7 +209,7 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "empty installation token",
 			options: installOptions{
-				disableSystemd: true,
+				skipSystemd: true,
 			},
 			preActions: []checkFunc{preActionMockUserConfig, preActionWriteDifferentTokenToUserConfig},
 			preChecks:  []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigCreated, checkUserNotExists},
@@ -195,7 +218,7 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "configuration with tags",
 			options: installOptions{
-				disableSystemd:   true,
+				skipSystemd:      true,
 				skipInstallToken: true,
 				tags: map[string]string{
 					"lorem": "ipsum",
@@ -203,12 +226,12 @@ func TestInstallScript(t *testing.T) {
 				},
 			},
 			preChecks:  []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkUserNotExists},
-			postChecks: []checkFunc{checkBinaryCreated, checkBinaryIsRunning, checkConfigCreated, checkTags, checkSystemdConfigNotCreated},
+			postChecks: []checkFunc{checkBinaryCreated, checkBinaryIsRunning, checkConfigCreated, checkConfigPathPermissions, checkTags, checkSystemdConfigNotCreated},
 		},
 		{
 			name: "same tags",
 			options: installOptions{
-				disableSystemd:   true,
+				skipSystemd:      true,
 				skipInstallToken: true,
 				tags: map[string]string{
 					"lorem": "ipsum",
@@ -223,7 +246,7 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "different tags",
 			options: installOptions{
-				disableSystemd:   true,
+				skipSystemd:      true,
 				skipInstallToken: true,
 				tags: map[string]string{
 					"lorem": "ipsum",
@@ -239,7 +262,7 @@ func TestInstallScript(t *testing.T) {
 		{
 			name: "editing tags",
 			options: installOptions{
-				disableSystemd:   true,
+				skipSystemd:      true,
 				skipInstallToken: true,
 				tags: map[string]string{
 					"lorem": "ipsum",
@@ -255,8 +278,17 @@ func TestInstallScript(t *testing.T) {
 			options: installOptions{
 				installToken: installToken,
 			},
-			preChecks:         []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkUserNotExists},
-			postChecks:        []checkFunc{checkBinaryCreated, checkBinaryIsRunning, checkConfigCreated, checkTokenInConfig, checkSystemdConfigCreated, checkUserExists},
+			preChecks: []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkUserNotExists},
+			postChecks: []checkFunc{
+				checkBinaryCreated,
+				checkBinaryIsRunning,
+				checkConfigCreated,
+				checkConfigPathPermissions,
+				checkTokenInConfig,
+				checkSystemdConfigCreated,
+				checkUserExists,
+				checkVarLogACL,
+			},
 			conditionalChecks: []condCheckFunc{checkSystemdAvailability},
 			installCode:       3, // because of invalid install token
 		},
@@ -264,6 +296,16 @@ func TestInstallScript(t *testing.T) {
 			name: "uninstallation",
 			options: installOptions{
 				uninstall: true,
+			},
+			preActions: []checkFunc{preActionMockStructure},
+			preChecks:  []checkFunc{checkBinaryCreated, checkConfigCreated, checkUserConfigCreated, checkUserNotExists},
+			postChecks: []checkFunc{checkBinaryNotCreated, checkConfigCreated, checkUserConfigCreated},
+		},
+		{
+			name: "uninstallation with autoconfirm",
+			options: installOptions{
+				autoconfirm: true,
+				uninstall:   true,
 			},
 			preActions: []checkFunc{preActionMockStructure},
 			preChecks:  []checkFunc{checkBinaryCreated, checkConfigCreated, checkUserConfigCreated, checkUserNotExists},
@@ -310,37 +352,18 @@ func TestInstallScript(t *testing.T) {
 			conditionalChecks: []condCheckFunc{checkSystemdAvailability},
 			installCode:       3, // because of invalid install token
 		},
+		{
+			name: "don't keep downloads",
+			options: installOptions{
+				skipInstallToken:  true,
+				dontKeepDownloads: true,
+			},
+			preChecks:  []checkFunc{checkBinaryNotCreated, checkConfigNotCreated, checkUserConfigNotCreated, checkUserNotExists},
+			postChecks: []checkFunc{checkBinaryCreated, checkBinaryIsRunning, checkConfigCreated, checkUserConfigNotCreated, checkSystemdConfigNotCreated},
+		},
 	} {
-		t.Run(tt.name, func(t *testing.T) {
-			ch := check{
-				test:                t,
-				installOptions:      tt.options,
-				expectedInstallCode: tt.installCode,
-			}
-
-			for _, a := range tt.conditionalChecks {
-				if !a(ch) {
-					t.SkipNow()
-				}
-			}
-
-			defer tearDown(t)
-
-			for _, a := range tt.preActions {
-				a(ch)
-			}
-
-			for _, c := range tt.preChecks {
-				c(ch)
-			}
-
-			ch.code, ch.output, ch.err = runScript(ch)
-			checkRun(ch)
-
-			for _, c := range tt.postChecks {
-				c(ch)
-			}
-
+		t.Run(spec.name, func(t *testing.T) {
+			runTest(t, &spec)
 		})
 	}
 }
