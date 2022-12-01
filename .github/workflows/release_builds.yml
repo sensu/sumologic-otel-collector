@@ -450,10 +450,9 @@ jobs:
       - name: Store MSIs as action artifact
         uses: actions/upload-artifact@v3
         with:
-          name: otelcol-sumo-wix-bin
-          path: ./packaging/msi/wix/bin
+          name: windows_amd64_msi
+          path: ./packaging/msi/wix/bin/x64/en-US/*.msi
           if-no-files-found: error
-  # otelcol-sumo-0.57.2-sumo-2-windows_amd64.exe
 
   create-release:
     name: Create Github release
