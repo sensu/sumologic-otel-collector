@@ -457,6 +457,7 @@ jobs:
       - build-fips
       #- build-container-images
       #- push-docker-manifest
+      - package-msi
     steps:
       - name: Extract tag
         id: extract_tag
