@@ -427,7 +427,7 @@ jobs:
       - name: Fetch binary artifact for windows/amd64
         uses: actions/download-artifact@v3
         with:
-          name: otelcol-sumo-windows_amd64.exe
+          name: windows_amd64
           path: ./otelcolbuilder/cmd
 
       - name: Set VERSION_TAG
