@@ -437,9 +437,6 @@ jobs:
       - name: DEBUG 1
         run: ls -l ./otelcolbuilder/cmd
 
-      - name: DEBUG 2
-        run: ls -l ./otelcolbuilder/cmd/windows_amd64
-
       - name: Set VERSION_TAG
         run: echo "VERSION_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
