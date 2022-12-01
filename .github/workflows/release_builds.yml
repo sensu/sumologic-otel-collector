@@ -453,10 +453,10 @@ jobs:
     runs-on: ubuntu-20.04
     needs:
       - build
-      - build-darwin
+      #- build-darwin
       - build-fips
-      - build-container-images
-      - push-docker-manifest
+      #- build-container-images
+      #- push-docker-manifest
     steps:
       - name: Extract tag
         id: extract_tag
