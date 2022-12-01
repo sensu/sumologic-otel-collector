@@ -431,7 +431,7 @@ jobs:
           path: ./otelcolbuilder/cmd
 
       - name: Set VERSION_TAG
-        run: echo "VERSION_TAG=${GITHUB_REF#refs/tags/v}" >> $GITHUB_ENV
+        run: echo "VERSION_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
 
       - name: Set PRODUCT_VERSION
         run: echo "PRODUCT_VERSION=$(./ci/get_productversion.sh)" >> $GITHUB_ENV

@@ -27,7 +27,7 @@ if [[ $version_tag =~ $version_regex ]]; then
     build_version="${BASH_REMATCH[3]}"
     ot_channel="${BASH_REMATCH[6]}"
     ot_channel_version="${BASH_REMATCH[7]}"
-    #sumo_channel="${BASH_REMATCH[9]}"
+    sumo_channel="${BASH_REMATCH[9]}"
     sumo_channel_version="${BASH_REMATCH[10]}"
 else
     echo "Error: Tag can not be converted to a Windows ProductVersion: ${version_tag}" >&2
@@ -36,7 +36,11 @@ fi
 
 if [[ $ot_channel == "sumo" ]]; then
     #channel="${sumo_channel}"
-    internal_version="${sumo_channel_version}"
+    if [[ $sumo_channel != "" ]]; then
+        internal_version="${sumo_channel_version}"
+    else
+        internal_version="${ot_channel_version}"
+    fi
 elif [[ $ot_channel != "" ]]; then
     #channel="${ot_channel}"
     internal_version="${ot_channel_version}"
