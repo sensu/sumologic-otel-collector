@@ -96,6 +96,7 @@ KEEP_DOWNLOADS=false
 
 # set by check_dependencies therefore cannot be set by set_defaults
 SYSTEMD_DISABLED=false
+LAUNCHD_DISABLED=false
 
 # alternative commands
 TAC="tac"
@@ -533,10 +534,12 @@ function setup_config() {
     echo -e "Creating user configurations directory (${USER_CONFIG_DIRECTORY})"
     mkdir -p "${USER_CONFIG_DIRECTORY}"
 
-    echo -e "Creating user env directory (${USER_ENV_DIRECTORY})"
-    mkdir -p "${USER_ENV_DIRECTORY}"
+    if [[ "${OS_TYPE}" != "darwin" ]]; then
+        echo -e "Creating user env directory (${USER_ENV_DIRECTORY})"
+        mkdir -p "${USER_ENV_DIRECTORY}"
+    fi
 
-    if [[ "${SYSTEMD_DISABLED}" == "true" ]]; then
+    if [[ "${LAUNCHD_DISABLED}" == "false" ]]; then
         echo -e "Creating log directory (${LOG_DIRECTORY})"
         mkdir -p "${LOG_DIRECTORY}"
     fi
@@ -613,7 +616,7 @@ function uninstall() {
     # disable launchd service
     if [[ -f "${LAUNCHD_CONFIG}" ]]; then
         launchctl stop otelcol-sumo || true
-        launchctl unload otelcol-sumo || true
+        launchctl unload ${LAUNCHD_CONFIG} || true
     fi
 
     # remove binary
@@ -621,11 +624,15 @@ function uninstall() {
 
     if [[ "${PURGE}" == "true" ]]; then
         # remove configuration and data
-        rm -rf "${CONFIG_DIRECTORY}" "${FILE_STORAGE}" "${SYSTEMD_CONFIG}" "${LAUNCHD_CONFIG}"
+        rm -rf "${CONFIG_DIRECTORY}" "${HOME_DIRECTORY}" "${SYSTEMD_CONFIG}" "${LAUNCHD_CONFIG}" "${LOG_DIRECTORY}"
 
         if [[ "${OS_TYPE}" == "darwin" ]]; then
-            dscl . -delete /Users/${SYSTEM_USER}
-            dscl . -delete /Groups/${SYSTEM_USER}
+            if dscl . -read /Users/${SYSTEM_USER} &> /dev/null; then
+                dscl . -delete /Users/${SYSTEM_USER}
+            fi
+            if dscl . -read /Groups/${SYSTEM_USER} &> /dev/null; then
+                dscl . -delete /Groups/${SYSTEM_USER}
+            fi
         else
             # remove user and group only if getent exists (it was required in order to create the user)
             if command -v "getent" &> /dev/null; then
@@ -1026,6 +1033,22 @@ readonly SUMOLOGIC_INSTALL_TOKEN API_BASE_URL FIELDS CONTINUE FILE_STORAGE CONFI
 readonly USER_CONFIG_DIRECTORY USER_ENV_DIRECTORY CONFIG_DIRECTORY CONFIG_PATH COMMON_CONFIG_PATH LOG_DIRECTORY
 readonly ACL_LOG_FILE_PATHS
 
+OS_TYPE="$(get_os_type)"
+ARCH_TYPE="$(get_arch_type)"
+readonly OS_TYPE ARCH_TYPE
+
+echo -e "Detected OS type:\t${OS_TYPE}"
+echo -e "Detected architecture:\t${ARCH_TYPE}"
+
+set_platform_overrides
+
+if [ "${FIPS}" == "true" ]; then
+    if [ "${OS_TYPE}" != "linux" ] || [ "${ARCH_TYPE}" != "amd64" ]; then
+        echo "Error: The FIPS-approved binary is only available for linux/amd64"
+        exit 1
+    fi
+fi
+
 if [[ "${UNINSTALL}" == "true" ]]; then
     uninstall
     exit 0
@@ -1080,22 +1103,6 @@ if [[ -z "${SUMOLOGIC_INSTALL_TOKEN}" && -z "${USER_TOKEN}" ]]; then
 fi
 
 readonly SYSTEMD_DISABLED
-
-OS_TYPE="$(get_os_type)"
-ARCH_TYPE="$(get_arch_type)"
-readonly OS_TYPE ARCH_TYPE
-
-echo -e "Detected OS type:\t${OS_TYPE}"
-echo -e "Detected architecture:\t${ARCH_TYPE}"
-
-set_platform_overrides
-
-if [ "${FIPS}" == "true" ]; then
-    if [ "${OS_TYPE}" != "linux" ] || [ "${ARCH_TYPE}" != "amd64" ]; then
-        echo "Error: The FIPS-approved binary is only available for linux/amd64"
-        exit 1
-    fi
-fi
 
 echo -e "Getting installed version..."
 INSTALLED_VERSION="$(get_installed_version)"
@@ -1286,8 +1293,10 @@ else
     fi
 fi
 
-echo 'Creating ACL grants on log paths'
-set_acl_on_log_paths
+if [[ "${OS_TYPE}" == "linux" ]]; then
+    echo 'Creating ACL grants on log paths'
+    set_acl_on_log_paths
+fi
 
 if [[ "${SKIP_CONFIG}" == "false" ]]; then
     echo 'Changing ownership for config and storage'
@@ -1331,17 +1340,22 @@ if [[ "${SYSTEMD_DISABLED}" == "false" ]]; then
     systemctl status otelcol-sumo
 fi
 
+# TODO: add check for version to prevent launchd from being configured on
+# versions without the launchd config
+
 LAUNCHD_CONFIG_URL="https://raw.githubusercontent.com/SumoLogic/sumologic-otel-collector/${CONFIG_BRANCH}/examples/launchd/otelcol-sumo.plist"
 if [[ "${LAUNCHD_DISABLED}" == "false" ]]; then
+    chown -R "${SYSTEM_USER}":"${SYSTEM_USER}" "${LOG_DIRECTORY}"
+
     TMP_LAUNCHD_CONFIG="otelcol-sumo.plist"
     TMP_LAUNCHD_CONFIG_BAK="${TMP_LAUNCHD_CONFIG}.bak"
     echo 'Getting service configuration'
     curl --retry 5 --connect-timeout 5 --max-time 30 --retry-delay 0 --retry-max-time 150 -fL "${LAUNCHD_CONFIG_URL}" --output "${TMP_LAUNCHD_CONFIG}" --progress-bar
-    sed -i.bak -e "s%/etc/otelcol-sumo%'${CONFIG_DIRECTORY}'%" "${TMP_LAUNCHD_CONFIG}"
+    sed -i.bak -e "s%/etc/otelcol-sumo%${CONFIG_DIRECTORY}%" "${TMP_LAUNCHD_CONFIG}"
 
     # Remove glob for versions up to 0.57
     if (( $(echo "${VERSION_PREFIX} <= 0.57" | bc -l) )); then
-        sed -i.bak -e "s% --config \"glob.*\"% --config ${COMMON_CONFIG_PATH}%" "${TMP_LAUNCHD_CONFIG}"
+        sed -i.bak -e "s%--config=glob.*\"%--config=${COMMON_CONFIG_PATH}%" "${TMP_LAUNCHD_CONFIG}"
         # clean up bak file
         rm -f "${TMP_LAUNCHD_CONFIG_BAK}"
     fi
@@ -1349,13 +1363,12 @@ if [[ "${LAUNCHD_DISABLED}" == "false" ]]; then
     mv "${TMP_LAUNCHD_CONFIG}" "${LAUNCHD_CONFIG}"
 
     echo 'Load and enable otelcol-sumo service'
-    launchctl load -w otelcol-sumo
+    launchctl load -w ${LAUNCHD_CONFIG}
 
     echo 'Starting otelcol-sumo service'
     launchctl start otelcol-sumo
 
     echo 'Waiting 10s before checking status'
     sleep 10
-    launchctl print system/otelcol-sumo | awk '^[[:blank:]]state[[:blank:]]=/{ print $3 }'
-    systemctl status otelcol-sumo
+    launchctl print system/otelcol-sumo | grep '^[[:blank:]]state[[:blank:]]=' | sed 's/^[[:blank:]]state[[:blank:]]=[[:blank:]]//'
 fi

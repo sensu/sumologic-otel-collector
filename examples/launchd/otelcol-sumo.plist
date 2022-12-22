@@ -7,8 +7,8 @@
     <key>ProgramArguments</key>
     <array>
       <string>/usr/local/bin/otelcol-sumo</string>
-      <string>--config=/etc/sensu/config.json</string>
-      <string>--config="glob:/etc/otelcol-sumo/conf.d/*.yaml"</string>
+      <string>--config=/etc/otelcol-sumo/sumologic.yaml</string>
+      <string>--config=glob:/etc/otelcol-sumo/conf.d/*.yaml</string>
     </array>
     <!-- Service user -->
     <key>UserName</key>
