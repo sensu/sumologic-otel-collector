@@ -343,10 +343,6 @@ jobs:
           name: otelcol-sumo-windows_amd64
           path: ./otelcolbuilder/cmd
 
-      - name: Rename binary for windows/amd64
-        working-directory: ./otelcolbuilder/cmd
-        run: mv otelcol-sumo-*-sumo-*-windows_amd64.exe otelcol-sumo-windows_amd64.exe
-
       - name: Sign binary
         uses: skymatic/code-sign-action@v1
         with:
