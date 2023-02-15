@@ -13,4 +13,4 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - name: Test
-        run: ::notice title=TestTitle::TestMessage
+        run: echo ::notice title=TestTitle::TestMessage
