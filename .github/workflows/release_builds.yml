@@ -99,7 +99,7 @@ jobs:
 
       - name: Set filename
         id: set_filename
-        run: echo "filename=$(echo otelcol-sumo-${{ steps.extract_tag.outputs.tag }}-${OTELCOL_FIPS_SUFFIX}-${{matrix.arch_os}})${{matrix.builder_bin_ext}}" > $GITHUB_OUTPUT
+        run: echo "filename=$(echo otelcol-sumo-${{ steps.extract_tag.outputs.tag }}${OTELCOL_FIPS_SUFFIX}-${{matrix.arch_os}})${{matrix.builder_bin_ext}}" > $GITHUB_OUTPUT
 
       - name: Rename to include tag in filename
         run: cp otelcol-sumo-${{matrix.arch_os}}${{matrix.builder_bin_ext}} ${{ steps.set_filename.outputs.filename }}
