@@ -17,6 +17,9 @@ param (
 
     # InstallHostMetrics is used to install host metric collection.
     [bool] $InstallHostMetrics
+
+    # Fips is used to download a fips binary installer.
+    [bool] $Fips
 )
 
 ##
@@ -395,6 +398,12 @@ try {
     # set http client timeout to 30 seconds
     $httpClient.Timeout = New-Object System.TimeSpan(0, 0, 30)
 
+    if ($Fips -eq $true) {
+        if ($osName -ne "Win32NT" || $archName -ne "x64") {
+            Write-Error "Error: The FIPS-approved binary is only available for windows/amd64"
+        }
+    }
+
     Write-Host "Getting installed version..."
     $installedVersion = Get-InstalledVersion
     $installedVersionStr = "none"
@@ -447,9 +456,16 @@ try {
     # add newline after breaking changes and changelog
     Write-Host ""
 
+    # Add -fips to the msi filename if necessary
+    $fipsSuffix = ""
+    if ($Fips -eq $true) {
+        Write-Host "Getting FIPS-compliant binary"
+        $fipsSuffix = "-fips"
+    }
+
     # Download MSI
     $msiLanguage = "en-US"
-    $msiFileName = "otelcol-sumo_${productVersion}_${msiLanguage}.${archName}.msi"
+    $msiFileName = "otelcol-sumo_${productVersion}_${msiLanguage}.${archName}${fipsSuffix}.msi"
     $msiUri = "https://github.com/SumoLogic/sumologic-otel-collector/releases/download/"
     $msiUri += "v${Version}/${msiFileName}"
     $msiPath = "${env:TEMP}\${msiFileName}"
