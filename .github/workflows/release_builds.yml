@@ -112,16 +112,16 @@ jobs:
           go tool nm ${{ steps.set_filename.outputs.filename }} | \
           grep "vendor/github.com/microsoft/go-crypto-winnative/internal/bcrypt.GetFipsAlgorithmMode"
 
-      - name: Sign Windows binary
-        if: runner.os == 'Windows'
-        uses: skymatic/code-sign-action@v2
-        with:
-          certificate: '${{ secrets.MICROSOFT_CERTIFICATE }}'
-          password: '${{ secrets.MICROSOFT_CERTIFICATE_PASSWORD }}'
-          certificatesha1: '${{ secrets.MICROSOFT_CERTHASH }}'
-          certificatename: '${{ secrets.MICROSOFT_CERTNAME }}'
-          description: '${{ secrets.MICROSOFT_DESCRIPTION }}'
-          folder: ./otelcolbuilder/cmd
+      # - name: Sign Windows binary
+      #   if: runner.os == 'Windows'
+      #   uses: skymatic/code-sign-action@v2
+      #   with:
+      #     certificate: '${{ secrets.MICROSOFT_CERTIFICATE }}'
+      #     password: '${{ secrets.MICROSOFT_CERTIFICATE_PASSWORD }}'
+      #     certificatesha1: '${{ secrets.MICROSOFT_CERTHASH }}'
+      #     certificatename: '${{ secrets.MICROSOFT_CERTNAME }}'
+      #     description: '${{ secrets.MICROSOFT_DESCRIPTION }}'
+      #     folder: ./otelcolbuilder/cmd
 
       - name: Store binary as action artifact
         uses: actions/upload-artifact@v3
