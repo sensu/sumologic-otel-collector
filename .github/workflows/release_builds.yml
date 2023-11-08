@@ -130,97 +130,97 @@ jobs:
           path: ./otelcolbuilder/cmd/${{ steps.set_filename.outputs.filename }}
           if-no-files-found: error
 
-  build-darwin:
-    name: Build darwin
-    runs-on: ${{ matrix.runs_on }}
-    strategy:
-      matrix:
-        include:
-          - arch_os: darwin_amd64
-            runs_on: macos-latest
-          - arch_os: darwin_arm64
-            runs_on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
+  # build-darwin:
+  #   name: Build darwin
+  #   runs-on: ${{ matrix.runs_on }}
+  #   strategy:
+  #     matrix:
+  #       include:
+  #         - arch_os: darwin_amd64
+  #           runs_on: macos-latest
+  #         - arch_os: darwin_arm64
+  #           runs_on: macos-latest
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Fetch current branch
-        run: ./ci/fetch_current_branch.sh
+  #     - name: Fetch current branch
+  #       run: ./ci/fetch_current_branch.sh
 
-      - name: Setup go
-        uses: actions/setup-go@v4
-        with:
-          go-version: ${{ env.GO_VERSION }}
+  #     - name: Setup go
+  #       uses: actions/setup-go@v4
+  #       with:
+  #         go-version: ${{ env.GO_VERSION }}
 
-      # As described in
-      # https://github.com/mvdan/github-actions-golang#how-do-i-set-up-caching-between-builds
-      - uses: actions/cache@v3
-        with:
-          path: |
-            /Users/runner/go/pkg/mod
-            /Users/runner/Library/Caches/go-build
-          key: ${{matrix.arch_os}}-go-${{ hashFiles('**/go.sum') }}
-          restore-keys: |
-            ${{matrix.arch_os}}-go-
+  #     # As described in
+  #     # https://github.com/mvdan/github-actions-golang#how-do-i-set-up-caching-between-builds
+  #     - uses: actions/cache@v3
+  #       with:
+  #         path: |
+  #           /Users/runner/go/pkg/mod
+  #           /Users/runner/Library/Caches/go-build
+  #         key: ${{matrix.arch_os}}-go-${{ hashFiles('**/go.sum') }}
+  #         restore-keys: |
+  #           ${{matrix.arch_os}}-go-
 
-      - name: Extract tag
-        id: extract_tag
-        run: echo "tag=$(echo ${GITHUB_REF#refs/tags/v})" > $GITHUB_OUTPUT
+  #     - name: Extract tag
+  #       id: extract_tag
+  #       run: echo "tag=$(echo ${GITHUB_REF#refs/tags/v})" > $GITHUB_OUTPUT
 
-      - name: Add opentelemetry-collector-builder installation dir to PATH
-        run: echo "$HOME/bin" >> $GITHUB_PATH
+  #     - name: Add opentelemetry-collector-builder installation dir to PATH
+  #       run: echo "$HOME/bin" >> $GITHUB_PATH
 
-      - name: Install opentelemetry-collector-builder
-        run: make install-builder
-        working-directory: ./otelcolbuilder
+  #     - name: Install opentelemetry-collector-builder
+  #       run: make install-builder
+  #       working-directory: ./otelcolbuilder
 
-      - name: Prepare tags in otelcolbuilder's config
-        run: make prepare-tag TAG=${{ steps.extract_tag.outputs.tag }}
+  #     - name: Prepare tags in otelcolbuilder's config
+  #       run: make prepare-tag TAG=${{ steps.extract_tag.outputs.tag }}
 
-      - name: Build
-        run: make otelcol-sumo-${{matrix.arch_os}}
-        working-directory: ./otelcolbuilder
+  #     - name: Build
+  #       run: make otelcol-sumo-${{matrix.arch_os}}
+  #       working-directory: ./otelcolbuilder
 
-      - name: Set filename
-        id: set_filename
-        run: echo "filename=$(echo otelcol-sumo-${{ steps.extract_tag.outputs.tag }}-${{matrix.arch_os}})" > $GITHUB_OUTPUT
+  #     - name: Set filename
+  #       id: set_filename
+  #       run: echo "filename=$(echo otelcol-sumo-${{ steps.extract_tag.outputs.tag }}-${{matrix.arch_os}})" > $GITHUB_OUTPUT
 
-      - name: Import Code-Signing Certificates
-        uses: Apple-Actions/import-codesign-certs@v2
-        with:
-          # The certificates in a PKCS12 file encoded as a base64 string
-          p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
-          # The password used to import the PKCS12 file.
-          p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
+  #     - name: Import Code-Signing Certificates
+  #       uses: Apple-Actions/import-codesign-certs@v2
+  #       with:
+  #         # The certificates in a PKCS12 file encoded as a base64 string
+  #         p12-file-base64: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_P12_BASE64 }}
+  #         # The password used to import the PKCS12 file.
+  #         p12-password: ${{ secrets.APPLE_DEVELOPER_CERTIFICATE_PASSWORD }}
 
-      - name: Sign the mac binaries
-        env:
-          AC_PASSWORD: ${{ secrets.AC_PASSWORD }}
-        working-directory: ./otelcolbuilder/
-        run: make ${{matrix.arch_os}}-sign
+  #     - name: Sign the mac binaries
+  #       env:
+  #         AC_PASSWORD: ${{ secrets.AC_PASSWORD }}
+  #       working-directory: ./otelcolbuilder/
+  #       run: make ${{matrix.arch_os}}-sign
 
-      - name: Rename .dmg to include tag in filename
-        run: cp otelcol-sumo-${{matrix.arch_os}}.dmg ${{ steps.set_filename.outputs.filename }}.dmg
-        working-directory: ./otelcolbuilder/cmd
+  #     - name: Rename .dmg to include tag in filename
+  #       run: cp otelcol-sumo-${{matrix.arch_os}}.dmg ${{ steps.set_filename.outputs.filename }}.dmg
+  #       working-directory: ./otelcolbuilder/cmd
 
-      - name: Rename binary to include tag in filename
-        run: cp otelcol-sumo-${{matrix.arch_os}} ${{ steps.set_filename.outputs.filename }}
-        working-directory: ./otelcolbuilder/cmd
+  #     - name: Rename binary to include tag in filename
+  #       run: cp otelcol-sumo-${{matrix.arch_os}} ${{ steps.set_filename.outputs.filename }}
+  #       working-directory: ./otelcolbuilder/cmd
 
-      # Store binary and .dmg into pipeline artifacts after they have been signed
+  #     # Store binary and .dmg into pipeline artifacts after they have been signed
 
-      - name: Store .dmg as action artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{matrix.arch_os}}.dmg
-          path: ./otelcolbuilder/cmd/${{ steps.set_filename.outputs.filename }}.dmg
-          if-no-files-found: error
+  #     - name: Store .dmg as action artifact
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: ${{matrix.arch_os}}.dmg
+  #         path: ./otelcolbuilder/cmd/${{ steps.set_filename.outputs.filename }}.dmg
+  #         if-no-files-found: error
 
-      - name: Store binary as action artifact
-        uses: actions/upload-artifact@v3
-        with:
-          name: ${{matrix.arch_os}}
-          path: ./otelcolbuilder/cmd/${{ steps.set_filename.outputs.filename }}
-          if-no-files-found: error
+  #     - name: Store binary as action artifact
+  #       uses: actions/upload-artifact@v3
+  #       with:
+  #         name: ${{matrix.arch_os}}
+  #         path: ./otelcolbuilder/cmd/${{ steps.set_filename.outputs.filename }}
+  #         if-no-files-found: error
 
   # pipeline to build FIPS compliance binary on Go+BoringCrypto
   build-fips:
@@ -282,117 +282,117 @@ jobs:
           path: ./otelcolbuilder/cmd/${{ steps.set_filename.outputs.filename }}
           if-no-files-found: error
 
-  build-container-images:
-    name: Build container
-    runs-on: ubuntu-20.04
-    needs:
-      - build
-      - build-fips
-    strategy:
-      matrix:
-        arch_os: [ 'linux_amd64', 'linux_arm64']
-    steps:
-      - uses: actions/checkout@v4
+  # build-container-images:
+  #   name: Build container
+  #   runs-on: ubuntu-20.04
+  #   needs:
+  #     - build
+  #     - build-fips
+  #   strategy:
+  #     matrix:
+  #       arch_os: [ 'linux_amd64', 'linux_arm64']
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Extract tag
-        id: extract_tag
-        run: echo "tag=$(echo ${GITHUB_REF#refs/tags/v})" > $GITHUB_OUTPUT
+  #     - name: Extract tag
+  #       id: extract_tag
+  #       run: echo "tag=$(echo ${GITHUB_REF#refs/tags/v})" > $GITHUB_OUTPUT
 
-      - name: Print tag
-        run: echo "${{ steps.extract_tag.outputs.tag }}"
+  #     - name: Print tag
+  #       run: echo "${{ steps.extract_tag.outputs.tag }}"
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3.0.0
+  #     - name: Set up QEMU
+  #       uses: docker/setup-qemu-action@v3.0.0
 
-      - name: Set up Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v3.0.0
+  #     - name: Set up Buildx
+  #       id: buildx
+  #       uses: docker/setup-buildx-action@v3.0.0
 
-      - name: Show Buildx platforms
-        run: echo ${{ steps.buildx.outputs.platforms }}
+  #     - name: Show Buildx platforms
+  #       run: echo ${{ steps.buildx.outputs.platforms }}
 
-      - name: Set filename
-        id: set_filename
-        run: echo "filename=$(echo otelcol-sumo-${{ steps.extract_tag.outputs.tag }}-${{matrix.arch_os}})" > $GITHUB_OUTPUT
+  #     - name: Set filename
+  #       id: set_filename
+  #       run: echo "filename=$(echo otelcol-sumo-${{ steps.extract_tag.outputs.tag }}-${{matrix.arch_os}})" > $GITHUB_OUTPUT
 
-      - name: Set filename for FIPS
-        id: set_filename_fips
-        run: echo "filename_fips=$(echo otelcol-sumo-${{ steps.extract_tag.outputs.tag }}-fips-${{matrix.arch_os}})" > $GITHUB_OUTPUT
+  #     - name: Set filename for FIPS
+  #       id: set_filename_fips
+  #       run: echo "filename_fips=$(echo otelcol-sumo-${{ steps.extract_tag.outputs.tag }}-fips-${{matrix.arch_os}})" > $GITHUB_OUTPUT
 
-      - name: Login to Open Source ECR
-        run: make login
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #     - name: Login to Open Source ECR
+  #       run: make login
+  #       env:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Download binary action artifact from build phase (regular binary and FIPS binary)
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{matrix.arch_os}}
-          path: artifacts/
+  #     - name: Download binary action artifact from build phase (regular binary and FIPS binary)
+  #       uses: actions/download-artifact@v3
+  #       with:
+  #         name: ${{matrix.arch_os}}
+  #         path: artifacts/
 
-      - name: Build and push FIPS image to Open Source ECR
-        if: matrix.arch_os == 'linux_amd64'
-        run: |
-          cp artifacts/${{ steps.set_filename_fips.outputs.filename_fips }} otelcol-sumo
-          make build-push-container-multiplatform \
-            BUILD_TAG=${{ steps.extract_tag.outputs.tag }}-fips \
-            PLATFORM=${{ matrix.arch_os }} \
-            LATEST_TAG_FIPS_SUFFIX="-fips"
+  #     - name: Build and push FIPS image to Open Source ECR
+  #       if: matrix.arch_os == 'linux_amd64'
+  #       run: |
+  #         cp artifacts/${{ steps.set_filename_fips.outputs.filename_fips }} otelcol-sumo
+  #         make build-push-container-multiplatform \
+  #           BUILD_TAG=${{ steps.extract_tag.outputs.tag }}-fips \
+  #           PLATFORM=${{ matrix.arch_os }} \
+  #           LATEST_TAG_FIPS_SUFFIX="-fips"
 
-      - name: Build and push image to Open Source ECR
-        run: |
-          cp artifacts/${{ steps.set_filename.outputs.filename }} otelcol-sumo
-          make build-push-container-multiplatform \
-            BUILD_TAG=${{ steps.extract_tag.outputs.tag }} \
-            PLATFORM=${{ matrix.arch_os }}
+  #     - name: Build and push image to Open Source ECR
+  #       run: |
+  #         cp artifacts/${{ steps.set_filename.outputs.filename }} otelcol-sumo
+  #         make build-push-container-multiplatform \
+  #           BUILD_TAG=${{ steps.extract_tag.outputs.tag }} \
+  #           PLATFORM=${{ matrix.arch_os }}
 
-  push-docker-manifest:
-    name: Push joint container manifest
-    runs-on: ubuntu-20.04
-    needs:
-      # Require darwin build to succeed to prevent pushing container images
-      # when darwin build fails.
-      #- build-darwin
-      - build-container-images
-    steps:
-      - uses: actions/checkout@v4
+  # push-docker-manifest:
+  #   name: Push joint container manifest
+  #   runs-on: ubuntu-20.04
+  #   needs:
+  #     # Require darwin build to succeed to prevent pushing container images
+  #     # when darwin build fails.
+  #     #- build-darwin
+  #     - build-container-images
+  #   steps:
+  #     - uses: actions/checkout@v4
 
-      - name: Extract tag
-        id: extract_tag
-        run: echo "tag=$(echo ${GITHUB_REF#refs/tags/v})" > $GITHUB_OUTPUT
+  #     - name: Extract tag
+  #       id: extract_tag
+  #       run: echo "tag=$(echo ${GITHUB_REF#refs/tags/v})" > $GITHUB_OUTPUT
 
-      - name: Print tag
-        run: echo "${{ steps.extract_tag.outputs.tag }}"
+  #     - name: Print tag
+  #       run: echo "${{ steps.extract_tag.outputs.tag }}"
 
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3.0.0
+  #     - name: Set up QEMU
+  #       uses: docker/setup-qemu-action@v3.0.0
 
-      - name: Set up Buildx
-        id: buildx
-        uses: docker/setup-buildx-action@v3.0.0
+  #     - name: Set up Buildx
+  #       id: buildx
+  #       uses: docker/setup-buildx-action@v3.0.0
 
-      - name: Show Buildx platforms
-        run: echo ${{ steps.buildx.outputs.platforms }}
+  #     - name: Show Buildx platforms
+  #       run: echo ${{ steps.buildx.outputs.platforms }}
 
-      - name: Login to Open Source ECR
-        run: make login
-        env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  #     - name: Login to Open Source ECR
+  #       run: make login
+  #       env:
+  #         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  #         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
-      - name: Push joint FIPS container manifest for all platforms to Open Source ECR
-        run: |
-          make push-container-manifest \
-            BUILD_TAG=${{ steps.extract_tag.outputs.tag }}-fips \
-            PLATFORMS="linux/amd64" \
-            LATEST_TAG_FIPS_SUFFIX="-fips"
+  #     - name: Push joint FIPS container manifest for all platforms to Open Source ECR
+  #       run: |
+  #         make push-container-manifest \
+  #           BUILD_TAG=${{ steps.extract_tag.outputs.tag }}-fips \
+  #           PLATFORMS="linux/amd64" \
+  #           LATEST_TAG_FIPS_SUFFIX="-fips"
 
-      - name: Push joint container manifest for all platforms to Open Source ECR
-        run: |
-          make push-container-manifest \
-            BUILD_TAG=${{ steps.extract_tag.outputs.tag }} \
-            PLATFORMS="linux/amd64 linux/arm64"
+  #     - name: Push joint container manifest for all platforms to Open Source ECR
+  #       run: |
+  #         make push-container-manifest \
+  #           BUILD_TAG=${{ steps.extract_tag.outputs.tag }} \
+  #           PLATFORMS="linux/amd64 linux/arm64"
 
   package-msi:
     name: Package MSI
@@ -444,15 +444,15 @@ jobs:
         working-directory: ./packaging/msi/wix
         run: msbuild.exe -p:Configuration=Release -p:Platform=${{ matrix.platform }} -p:ProductVersion=$PRODUCT_VERSION -p:FIPSEnabled=${{ matrix.fips }} -Restore
 
-      - name: Sign MSI
-        uses: skymatic/code-sign-action@v2
-        with:
-          certificate: '${{ secrets.MICROSOFT_CERTIFICATE }}'
-          password: '${{ secrets.MICROSOFT_CERTIFICATE_PASSWORD }}'
-          certificatesha1: '${{ secrets.MICROSOFT_CERTHASH }}'
-          certificatename: '${{ secrets.MICROSOFT_CERTNAME }}'
-          description: '${{ secrets.MICROSOFT_DESCRIPTION }}'
-          folder: ./packaging/msi/wix/bin/${{ matrix.platform }}/en-US
+      # - name: Sign MSI
+      #   uses: skymatic/code-sign-action@v2
+      #   with:
+      #     certificate: '${{ secrets.MICROSOFT_CERTIFICATE }}'
+      #     password: '${{ secrets.MICROSOFT_CERTIFICATE_PASSWORD }}'
+      #     certificatesha1: '${{ secrets.MICROSOFT_CERTHASH }}'
+      #     certificatename: '${{ secrets.MICROSOFT_CERTNAME }}'
+      #     description: '${{ secrets.MICROSOFT_DESCRIPTION }}'
+      #     folder: ./packaging/msi/wix/bin/${{ matrix.platform }}/en-US
 
       - name: Store MSI as action artifact for ${{ matrix.arch_os }}
         uses: actions/upload-artifact@v3
@@ -531,8 +531,8 @@ jobs:
       - build
       #- build-darwin
       - build-fips
-      - build-container-images
-      - push-docker-manifest
+      #- build-container-images
+      #- push-docker-manifest
       - package-msi
     steps:
       - name: Extract tag
