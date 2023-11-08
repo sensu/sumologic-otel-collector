@@ -126,7 +126,7 @@ jobs:
       - name: Store binary as action artifact
         uses: actions/upload-artifact@v3
         with:
-          name: ${{matrix.arch_os}}
+          name: ${{matrix.arch_os}}${{ matrix.fips && '_fips' || '' }}
           path: ./otelcolbuilder/cmd/${{ steps.set_filename.outputs.filename }}
           if-no-files-found: error
 
@@ -427,7 +427,7 @@ jobs:
       - name: Fetch binary artifact for ${{ matrix.arch_os }}
         uses: actions/download-artifact@v3
         with:
-          name: otelcol-sumo-${{ steps.extract_tag.outputs.tag }}${{ matrix.fips && '-fips' || '' }}-${{ matrix.arch_os }}.exe
+          name: windows_amd64_fips
           path: ./otelcolbuilder/cmd
 
       - name: Rename binary artifact for ${{ matrix.arch_os }}
