@@ -57,7 +57,7 @@ jobs:
           cache-dependency-path: '**/go.sum'
 
       - name: Setup go (Microsoft fork)
-        if: contains(inputs.arch_os, 'windows') && inputs.fips
+        if: contains(matrix.arch_os, 'windows') && matrix.fips
         run: |
           curl -Lo go.zip https://aka.ms/golang/release/latest/go${{ env.GO_VERSION }}.windows-amd64.zip &&
           powershell -command "Expand-Archive go.zip D:\\a\\_work\\1\\s" &&
@@ -88,12 +88,12 @@ jobs:
         run: make prepare-tag TAG=${{ steps.extract_tag.outputs.tag }}
 
       - name: Build
-        if: ${{ ! (inputs.fips && contains(inputs.arch_os, 'windows')) }}
+        if: ${{ ! (matrix.fips && contains(matrix.arch_os, 'windows')) }}
         run: make otelcol-sumo-${{matrix.arch_os}}
         working-directory: ./otelcolbuilder
 
       - name: Build (FIPS) for Windows
-        if: inputs.fips && contains(inputs.arch_os, 'windows')
+        if: matrix.fips && contains(matrix.arch_os, 'windows')
         run: make otelcol-sumo-${{matrix.arch_os}} FIPS_SUFFIX="-fips" CGO_ENABLED=1
         working-directory: ./otelcolbuilder
 
@@ -106,7 +106,7 @@ jobs:
         working-directory: ./otelcolbuilder/cmd
 
       - name: Show Microsoft Cryptography Next-Generation symbols
-        if: inputs.fips && contains(inputs.arch_os, 'windows')
+        if: matrix.fips && contains(matrix.arch_os, 'windows')
         working-directory: ./otelcolbuilder/cmd
         run: |
           go tool nm ${{ steps.set_filename.outputs.filename }} | \
